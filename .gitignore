@@ -1,2 +1,16 @@
 Context.md
 Task.md
+
+# Local Python environment and generated output
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.env
+.env.*
+!.env.example
