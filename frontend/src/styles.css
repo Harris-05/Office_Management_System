@@ -38,7 +38,21 @@ input:focus { outline: 2px solid #84a88b; outline-offset: 1px; }
 .password-field input { padding-right: 66px; }
 .show-password { position: absolute; right: 5px; top: 5px; bottom: 5px; border: 0; background: transparent; color: #526c5b; font-size: 12px; padding: 0 12px; }
 .primary { display: flex; align-items: center; justify-content: center; gap: 16px; width: 100%; min-height: 48px; padding: 14px; margin-top: 26px; border: 0; border-radius: 7px; background: #214f40; color: #fff; font-size: 13px; font-weight: 600; transition: background .15s; }
-.primary:hover { background: #163d30; }
+.primary:hover:not(:disabled) { background: #163d30; }
+.primary.is-loading { opacity: 1; background: #587465; cursor: wait; }
+.spinner { width: 17px; height: 17px; flex-shrink: 0; border: 2px solid #ffffff55; border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
+.request-status { min-height: 18px; margin: 10px 0 0; text-align: center; color: #61766a; font-size: 12px; }
+.feedback-error { display: flex; align-items: flex-start; gap: 12px; margin-top: 20px; padding: 16px; border: 1px solid #edc3bd; border-left: 3px solid #bc5144; border-radius: 8px; background: #fff4f1; color: #84382f; animation: feedback-in .2s ease-out; }
+.feedback-error strong, .success-banner strong { display: block; font-size: 13px; }
+.feedback-error p, .success-banner p { margin: 5px 0 0; font-size: 12px; line-height: 1.6; }
+.error-icon { display: grid; place-items: center; width: 22px; height: 22px; flex-shrink: 0; border: 1px solid #d59a91; border-radius: 50%; font-size: 13px; font-weight: 700; }
+.feedback-error:focus { outline: 2px solid #bc5144; outline-offset: 3px; }
+.welcome { animation: feedback-in .3s ease-out; }
+.welcome h2:focus { outline: none; }
+.success-banner { display: flex; align-items: center; gap: 13px; margin-bottom: 32px; padding: 18px; background: #eaf4e9; border: 1px solid #c3dcc0; border-radius: 10px; color: #285937; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes feedback-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .spinner, .welcome, .feedback-error { animation: none; } }
 .error { color: #a23732; background: #fcf0ed; border-radius: 5px; padding: 12px; font-size: 12px; line-height: 1.5; }
 .demo-accounts { border-top: 1px solid #e0e7df; margin-top: 30px; padding-top: 22px; }
 summary { cursor: pointer; font-size: 12px; font-weight: 600; color: #526c5b; }
@@ -50,7 +64,7 @@ code { color: #345d43; background: #ebf0e8; padding: 2px 4px; border-radius: 3px
 .account-list small { color: #748176; }
 .demo-note { color: #7c877e; font-size: 11px; line-height: 1.7; margin-top: 23px; }
 .workspace footer { text-align: center; font-size: 10px; color: #8f9b91; letter-spacing: .3px; }
-.success-icon { width: 44px; height: 44px; display: grid; place-items: center; background: #e5efdd; border-radius: 50%; font-size: 22px; margin-bottom: 28px; }
+.success-icon { width: 38px; height: 38px; flex-shrink: 0; display: grid; place-items: center; background: #d1e8cc; border-radius: 50%; font-size: 21px; }
 .profile { border: 1px solid #dce5d9; border-radius: 8px; padding: 6px 18px; font-size: 13px; }
 .profile div { padding: 14px 0; }
 .profile div + div { border-top: 1px solid #e3e9e0; }
