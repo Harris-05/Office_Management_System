@@ -17,3 +17,5 @@ htmlcov/
 node_modules/
 frontend/dist/
 backend/pytest-cache-files-*/
+
+docs/
