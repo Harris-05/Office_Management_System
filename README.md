@@ -4,7 +4,7 @@ A web platform connecting volunteer branches with head office, alongside the org
 
 ## Project status
 
-**Initial backend and CI setup.** A minimal FastAPI application, health endpoint, smoke tests and GitHub Actions workflow now exist. Business features, database migrations, frontend and deployment remain unimplemented. A remote CI run has not yet been verified.
+**Basic login prototype.** A React/TypeScript login page connects to a FastAPI demo login endpoint. Five sample accounts return a role-specific welcome message. Backend tests and CI configuration exist; the user reports the initial CI setup has been merged into dev and main. Business workflows, PostgreSQL, persistent authentication and deployment are not implemented yet.
 
 This README describes the intended system. Features and infrastructure below are planned unless explicitly marked complete. See [the development guide](docs/DEVELOPMENT.md) for local setup, CI checks and branch protection instructions.
 
@@ -33,7 +33,40 @@ FastAPI is the intended backend. The remaining application choices are the propo
 | Packaging | Docker | Reproducible application container |
 | Hosting | Render with PostgreSQL | Live application and database |
 
-Exact dependency versions will be selected and locked during setup. Authentication, translation and PDF-generation libraries are still to be selected.
+Backend direct dependencies are pinned in `backend/requirements-dev.txt`; frontend dependencies are locked in `frontend/package-lock.json`. The first login page uses plain CSS; Tailwind remains proposed for later UI work. Authentication, translation and PDF-generation libraries are still to be selected.
+
+## Run the basic login prototype
+
+Start the backend from the repository root in one PowerShell terminal:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r backend/requirements-dev.txt
+Set-Location backend
+..\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
+```
+
+Start the frontend in a second terminal:
+
+```powershell
+Set-Location frontend
+npm ci
+npm run dev
+```
+
+Open `http://localhost:5173`. Vite forwards `/api` requests to FastAPI on port 8000. The frontend requires Node 22.12+ (CI uses Node 24). The development proxy is not a production deployment configuration.
+
+Expand **Try a demo account** to fill the form, then click **Sign in**. All demo accounts use password `Demo123!`:
+
+| Role | Demo email |
+| --- | --- |
+| Super Admin | admin@example.test |
+| Finance Reviewer | finance@example.test |
+| Content Editor | editor@example.test |
+| Branch Lead | branch@example.test |
+| HR Lead | hr@example.test |
+
+This prototype uses hard-coded sample accounts. Login returns a profile; it does not issue a session/token or enforce role permissions. The welcome screen is stored only in React memory and resets on refresh. **Sign out** clears that screen. These demo credentials do not satisfy the final secure authentication requirement.
 
 ## Planned architecture
 
@@ -137,13 +170,14 @@ The completed submission must demonstrate:
 
 Additional requirements include at least **60% backend test coverage**, security against OWASP Top 10 risks, a Dockerfile and a health endpoint. Lighthouse **90+** is included in the judging criteria.
 
-Priority test areas will include cross-branch access, role permissions, application acceptance, collection lock boundaries, report transitions, approved-report immutability and financial calculations. Initial local validation passed Ruff lint/format and two smoke tests with 100% coverage of the minimal health-only backend on Python 3.14. This does not measure completion of the business features; the Python 3.12 GitHub run is still pending.
+Priority test areas will include cross-branch access, role permissions, application acceptance, collection lock boundaries, report transitions, approved-report immutability and financial calculations. Basic-login local validation passed Ruff lint/format, 11 backend tests (100% coverage of the small backend on Python 3.14), and the TypeScript/Vite production build. HTTP checks verified the frontend and a login request through the development API proxy. Interactive browser testing remains manual. These results do not measure completion of the business features or verify the feature's GitHub CI run.
 
 ## Development roadmap
 
 - [x] Review the assignment and discuss requirements.
 - [x] Record project context and create the initial README.
 - [x] Add a minimal FastAPI foundation and GitHub Actions CI workflow.
+- [x] Add a basic demo login page, endpoint and frontend CI build.
 - [ ] Publish branches, verify the first GitHub CI run and configure branch protection.
 - [ ] Finalise the permission matrix, reporting rules and database schema.
 - [ ] Implement authentication, branch management and auditing.
@@ -161,7 +195,7 @@ The first planned end-to-end workflow is: create a branch, receive an applicatio
 
 The [CI workflow](.github/workflows/ci.yml) runs on pull requests targeting `dev` or `main`, on pushes to either branch (including merges), and manually. The development flow is **feature branch -> PR into dev -> release PR into main**. Updated commits on an open PR rerun CI.
 
-Current checks use Python 3.12, Ruff lint and formatting, and pytest with a 60% backend coverage gate. See [branching and CI setup](docs/DEVELOPMENT.md) for commands and required GitHub branch settings. Frontend, PostgreSQL integration and Docker checks will follow when those components exist. No Dockerfile, live deployment or verified GitHub build is available yet. Do not commit secrets or real personal data.
+Current checks use Python 3.12, Ruff lint and formatting, and pytest with a 60% backend coverage gate. A frontend job uses Node 24, `npm ci` and `npm run build` for TypeScript validation and a production build. See [branching and CI setup](docs/DEVELOPMENT.md) for commands and required GitHub branch settings. PostgreSQL integration and Docker checks will follow when those components exist. No Dockerfile or live deployment is available yet. Do not commit secrets or real personal data.
 
 ## Repository and documentation
 

@@ -41,9 +41,9 @@ The `CI` workflow exposes a `Backend checks` job using Python 3.12:
 3. Check Ruff formatting.
 4. Run pytest with branch coverage and a minimum 60% backend coverage gate.
 
-The current backend is only a FastAPI liveness endpoint and its smoke tests. Its coverage does not demonstrate completion of the business requirements. Add permission and workflow tests as features are implemented.
+The backend currently has a liveness endpoint and a demo login endpoint with tests. Its coverage does not demonstrate completion of the business requirements. Add permission and workflow tests as features are implemented.
 
-Frontend builds, PostgreSQL integration tests and Docker validation must be added when those components exist. There are no placeholder jobs that silently skip missing applications.
+The `Frontend build` job uses Node 24, installs from `frontend/package-lock.json` with `npm ci`, and runs `npm run build` (TypeScript validation and Vite production build). Run these commands from `frontend` locally too. PostgreSQL integration tests and Docker validation must be added when those components exist.
 
 ## Local validation (PowerShell)
 
@@ -67,6 +67,7 @@ Workflow files run checks; repository rules enforce whether a merge is allowed. 
 
 - Require a pull request before merging.
 - Require the `Backend checks` status check from GitHub Actions.
+- Also require `Frontend build` once the basic-login workflow has run.
 - Require branches to be up to date before merging.
 - Block force pushes and branch deletion.
 - Apply rules to administrators/bypass users as appropriate.
