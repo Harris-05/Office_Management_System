@@ -136,7 +136,7 @@ function App() {
                   {accounts.map(([role, address]) => <button key={address} type="button" disabled={busy} onClick={() => { setEmail(address); setPassword('Demo123!'); setError(null); }}><span>{role}</span><small>{address}</small></button>)}
                 </div>
               </details>
-              <p className="demo-note">Demo only · Uses sample accounts without a database or persistent authentication.</p>
+              <p className="demo-note">Demo accounts are stored in PostgreSQL. Persistent sessions and permissions are coming next.</p>
             </>
           )}
         </div>

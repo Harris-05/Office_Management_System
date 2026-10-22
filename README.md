@@ -4,7 +4,7 @@ A web platform connecting volunteer branches with head office, alongside the org
 
 ## Project status
 
-**Basic login prototype.** A React/TypeScript login page connects to a FastAPI demo login endpoint. Five sample accounts return a role-specific welcome message. Backend tests and CI configuration exist; the user reports the initial CI setup has been merged into dev and main. Business workflows, PostgreSQL, persistent authentication and deployment are not implemented yet.
+**Database-backed login foundation.** A React/TypeScript login page connects to FastAPI and PostgreSQL. Staff accounts are persisted with hashed passwords, roles and active status. Alembic migrations, explicit demo seeding and PostgreSQL integration tests are included. Business workflows, persistent sessions, permission enforcement and deployment remain to be implemented.
 
 This README describes the intended system. Features and infrastructure below are planned unless explicitly marked complete. See [the development guide](docs/DEVELOPMENT.md) for local setup, CI checks and branch protection instructions.
 
@@ -33,16 +33,20 @@ FastAPI is the intended backend. The remaining application choices are the propo
 | Packaging | Docker | Reproducible application container |
 | Hosting | Render with PostgreSQL | Live application and database |
 
-Backend direct dependencies are pinned in `backend/requirements-dev.txt`; frontend dependencies are locked in `frontend/package-lock.json`. The first login page uses plain CSS; Tailwind remains proposed for later UI work. Authentication, translation and PDF-generation libraries are still to be selected.
+Backend runtime dependencies are pinned in `backend/requirements.txt`; `backend/requirements-dev.txt` adds development tools. Frontend dependencies are locked in `frontend/package-lock.json`. The first login page uses plain CSS; Tailwind remains proposed for later UI work. Passwords use Argon2 through pwdlib; session authentication, translation and PDF libraries are still to be selected.
 
 ## Run the basic login prototype
 
-Start the backend from the repository root in one PowerShell terminal:
+Start Docker Desktop, then set up PostgreSQL and the backend from the repository root in one PowerShell terminal. Copy the example environment file only on first setup; keep an existing configuration. See [database setup and design](docs/DATABASE.md) for details.
 
 ```powershell
+docker compose up -d --wait db
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r backend/requirements-dev.txt
+Copy-Item backend/.env.example backend/.env
 Set-Location backend
+..\.venv\Scripts\python.exe -m alembic upgrade head
+..\.venv\Scripts\python.exe -m app.seed --demo
 ..\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
 ```
 
@@ -66,7 +70,7 @@ Expand **Try a demo account** to fill the form, then click **Sign in**. All demo
 | Branch Lead | branch@example.test |
 | HR Lead | hr@example.test |
 
-This prototype uses hard-coded sample accounts. Login returns a profile; it does not issue a session/token or enforce role permissions. The welcome screen is stored only in React memory and resets on refresh. **Sign out** clears that screen. These demo credentials do not satisfy the final secure authentication requirement.
+Sample accounts are explicitly seeded into PostgreSQL; login no longer uses a hard-coded account dictionary. Seed reruns leave existing users unchanged. Only password hashes are stored, and inactive users cannot log in. Login still returns a profile without issuing a session/token or enforcing role permissions. The welcome screen remains in React memory and resets on refresh. **Sign out** clears that screen. Full secure authentication remains a later milestone.
 
 ## Planned architecture
 
@@ -170,7 +174,7 @@ The completed submission must demonstrate:
 
 Additional requirements include at least **60% backend test coverage**, security against OWASP Top 10 risks, a Dockerfile and a health endpoint. Lighthouse **90+** is included in the judging criteria.
 
-Priority test areas will include cross-branch access, role permissions, application acceptance, collection lock boundaries, report transitions, approved-report immutability and financial calculations. Basic-login local validation passed Ruff lint/format, 11 backend tests (100% coverage of the small backend on Python 3.14), and the TypeScript/Vite production build. HTTP checks verified the frontend and a login request through the development API proxy. Interactive browser testing remains manual. These results do not measure completion of the business features or verify the feature's GitHub CI run.
+Priority test areas will include cross-branch access, role permissions, application acceptance, collection lock boundaries, report transitions, approved-report immutability and financial calculations. Database-foundation validation passed Ruff lint/format, 19 PostgreSQL-backed tests with 90.14% backend coverage on Python 3.14, and the TypeScript/Vite production build. Development migrations, rollback/re-upgrade on the test database, repeated seeding, fresh-process database login and readiness were verified. Interactive browser testing remains manual. These results do not measure completion of the business features or verify the feature's GitHub CI run.
 
 ## Development roadmap
 
@@ -178,6 +182,7 @@ Priority test areas will include cross-branch access, role permissions, applicat
 - [x] Record project context and create the initial README.
 - [x] Add a minimal FastAPI foundation and GitHub Actions CI workflow.
 - [x] Add a basic demo login page, endpoint and frontend CI build.
+- [x] Add PostgreSQL account storage, Alembic migrations, password hashing and database integration tests.
 - [ ] Publish branches, verify the first GitHub CI run and configure branch protection.
 - [ ] Finalise the permission matrix, reporting rules and database schema.
 - [ ] Implement authentication, branch management and auditing.
@@ -195,7 +200,7 @@ The first planned end-to-end workflow is: create a branch, receive an applicatio
 
 The [CI workflow](.github/workflows/ci.yml) runs on pull requests targeting `dev` or `main`, on pushes to either branch (including merges), and manually. The development flow is **feature branch -> PR into dev -> release PR into main**. Updated commits on an open PR rerun CI.
 
-Current checks use Python 3.12, Ruff lint and formatting, and pytest with a 60% backend coverage gate. A frontend job uses Node 24, `npm ci` and `npm run build` for TypeScript validation and a production build. See [branching and CI setup](docs/DEVELOPMENT.md) for commands and required GitHub branch settings. PostgreSQL integration and Docker checks will follow when those components exist. No Dockerfile or live deployment is available yet. Do not commit secrets or real personal data.
+Current checks use Python 3.12, Ruff lint/format and pytest against PostgreSQL 16 with a 60% backend coverage gate. CI applies migrations, checks model drift, and verifies downgrade/re-upgrade against its disposable database. A frontend job uses Node 24, `npm ci` and `npm run build`. See [branching and CI setup](docs/DEVELOPMENT.md) and [database instructions](docs/DATABASE.md). Application Docker image checks will follow when a Dockerfile exists; local Compose currently runs the database only. No live deployment is available yet.
 
 ## Repository and documentation
 

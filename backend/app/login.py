@@ -1,18 +1,13 @@
-"""Temporary demo login; no sessions or authorisation are implemented."""
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
-router = APIRouter(prefix="/api", tags=["demo login"])
+from app.database import get_db
+from app.users import authenticate_user
 
-DEMO_USERS = {
-    "admin@example.test": ("Demo Admin", "Super Admin"),
-    "finance@example.test": ("Demo Finance Reviewer", "Finance Reviewer"),
-    "editor@example.test": ("Demo Content Editor", "Content Editor"),
-    "branch@example.test": ("Demo Branch Lead", "Branch Lead"),
-    "hr@example.test": ("Demo HR Lead", "HR Lead"),
-}
-DEMO_PASSWORD = "Demo123!"
+router = APIRouter(prefix="/api", tags=["login"])
 
 
 class LoginRequest(BaseModel):
@@ -20,16 +15,15 @@ class LoginRequest(BaseModel):
     password: str = Field(min_length=1, max_length=128)
 
 
-class DemoUser(BaseModel):
+class UserProfile(BaseModel):
     name: str
     email: str
     role: str
 
 
-@router.post("/login", response_model=DemoUser)
-def login(credentials: LoginRequest) -> DemoUser:
-    email = credentials.email.strip().lower()
-    user = DEMO_USERS.get(email)
-    if user is None or credentials.password != DEMO_PASSWORD:
+@router.post("/login", response_model=UserProfile)
+def login(credentials: LoginRequest, session: Annotated[Session, Depends(get_db)]) -> UserProfile:
+    user = authenticate_user(session, credentials.email, credentials.password)
+    if user is None:
         raise HTTPException(status_code=401, detail="Incorrect email or password.")
-    return DemoUser(name=user[0], email=email, role=user[1])
+    return UserProfile(name=user.name, email=user.email, role=user.role.value)

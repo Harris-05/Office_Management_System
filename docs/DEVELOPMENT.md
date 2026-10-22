@@ -39,15 +39,16 @@ The `CI` workflow exposes a `Backend checks` job using Python 3.12:
 1. Install backend development dependencies.
 2. Run Ruff lint checks.
 3. Check Ruff formatting.
-4. Run pytest with branch coverage and a minimum 60% backend coverage gate.
+4. Apply Alembic migrations, check model/schema drift, and verify downgrade/re-upgrade against a disposable PostgreSQL 16 service.
+5. Run database-backed pytest tests with branch coverage and a minimum 60% backend coverage gate.
 
-The backend currently has a liveness endpoint and a demo login endpoint with tests. Its coverage does not demonstrate completion of the business requirements. Add permission and workflow tests as features are implemented.
+The backend currently has liveness/readiness endpoints and database-backed login. Its coverage does not demonstrate completion of the business requirements. Add permission and workflow tests as features are implemented.
 
-The `Frontend build` job uses Node 24, installs from `frontend/package-lock.json` with `npm ci`, and runs `npm run build` (TypeScript validation and Vite production build). Run these commands from `frontend` locally too. PostgreSQL integration tests and Docker validation must be added when those components exist.
+The `Frontend build` job uses Node 24, installs from `frontend/package-lock.json` with `npm ci`, and runs `npm run build` (TypeScript validation and Vite production build). Run these commands from `frontend` locally too. Application Docker image validation will follow when a Dockerfile exists.
 
 ## Local validation (PowerShell)
 
-From the repository root, using Python 3.12 or later:
+First follow [database setup](DATABASE.md) to start PostgreSQL, configure backend/.env, apply migrations and create the dedicated test database. From the repository root, using Python 3.12 or later:
 
 ```powershell
 python -m venv .venv
@@ -55,11 +56,12 @@ python -m venv .venv
 Set-Location backend
 ..\.venv\Scripts\python.exe -m ruff check .
 ..\.venv\Scripts\python.exe -m ruff format --check .
+$env:TEST_DATABASE_URL = 'postgresql+psycopg://branch_office:local_dev_password@localhost:5432/branch_office_test'
 ..\.venv\Scripts\python.exe -m pytest
 ..\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
 ```
 
-Visit `/health` for process liveness or `/docs` for the generated API documentation. The endpoint does not check database readiness.
+Visit `/health` for process liveness, `/health/ready` for database/schema readiness or `/docs` for generated API documentation.
 
 ## Protect dev and main on GitHub
 
