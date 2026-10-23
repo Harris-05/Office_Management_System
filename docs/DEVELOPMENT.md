@@ -34,17 +34,17 @@ git push -u origin feature/short-description
 
 ## Current checks
 
-The `CI` workflow exposes a `Backend checks` job using Python 3.12:
+The `CI` workflow exposes a `Backend checks` job using Python 3.12 and PostgreSQL 16/Redis 7 services:
 
 1. Install backend development dependencies.
 2. Run Ruff lint checks.
 3. Check Ruff formatting.
 4. Apply Alembic migrations, check model/schema drift, and verify downgrade/re-upgrade against a disposable PostgreSQL 16 service.
-5. Run database-backed pytest tests with branch coverage and a minimum 60% backend coverage gate.
+5. Run database-backed pytest tests with branch coverage and a minimum 60% backend coverage gate, using isolated Redis keys for limit tests.
 
-The backend currently has liveness/readiness endpoints and database-backed login. Its coverage does not demonstrate completion of the business requirements. Add permission and workflow tests as features are implemented.
+The backend includes server-side session authentication and staff provisioning. Coverage does not demonstrate completion of the business requirements; add permission and workflow tests as features are implemented.
 
-The `Frontend build` job uses Node 24, installs from `frontend/package-lock.json` with `npm ci`, and runs `npm run build` (TypeScript validation and Vite production build). Run these commands from `frontend` locally too. Application Docker image validation will follow when a Dockerfile exists.
+The `Frontend build` job uses Node 24, installs from `frontend/package-lock.json` with `npm ci`, runs the frontend test suite, then `npm run build` (TypeScript validation and Vite production build). Run these commands from `frontend` locally too. Application Docker image validation will follow when a Dockerfile exists.
 
 ## Local validation (PowerShell)
 
@@ -58,7 +58,7 @@ Set-Location backend
 ..\.venv\Scripts\python.exe -m ruff format --check .
 $env:TEST_DATABASE_URL = 'postgresql+psycopg://branch_office:local_dev_password@localhost:5432/branch_office_test'
 ..\.venv\Scripts\python.exe -m pytest
-..\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
+..\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --no-proxy-headers
 ```
 
 Visit `/health` for process liveness, `/health/ready` for database/schema readiness or `/docs` for generated API documentation.

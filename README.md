@@ -6,7 +6,7 @@ A web platform connecting volunteer branches with head office, alongside the org
 
 **Staff account and authentication foundation.** Super Admins can create staff accounts and issue temporary-password resets. Staff complete a mandatory first-login password change. Login uses PostgreSQL-backed HttpOnly sessions, bcrypt with legacy-hash migration, CSRF protection and shared Redis rate limits. Business workflows, branch-scoped permissions and deployment remain to be implemented. See [security and account operations](SECURITY.md).
 
-This README describes the intended system. Features and infrastructure below are planned unless explicitly marked complete. See [the development guide](docs/DEVELOPMENT.md) for local setup, CI checks and branch protection instructions.
+The authentication and staff account foundation is implemented; the business workflows and deployment are still planned. See [the development guide](docs/DEVELOPMENT.md) for local setup, CI checks and branch protection instructions.
 
 ## The problem
 
@@ -178,7 +178,7 @@ The completed submission must demonstrate:
 
 Additional requirements include at least **60% backend test coverage**, security against OWASP Top 10 risks, a Dockerfile and a health endpoint. Lighthouse **90+** is included in the judging criteria.
 
-Priority test areas will include cross-branch access, role permissions, application acceptance, collection lock boundaries, report transitions, approved-report immutability and financial calculations. Database-foundation validation passed Ruff lint/format, 19 PostgreSQL-backed tests with 90.14% backend coverage on Python 3.14, and the TypeScript/Vite production build. Development migrations, rollback/re-upgrade on the test database, repeated seeding, fresh-process database login and readiness were verified. Interactive browser testing remains manual. These results do not measure completion of the business features or verify the feature's GitHub CI run.
+Priority test areas will include cross-branch access, role permissions, application acceptance, collection lock boundaries, report transitions, approved-report immutability and financial calculations. On 23 October 2026, the authentication foundation passed 55 PostgreSQL/Redis-backed tests with 89.47% backend coverage on Python 3.14; Ruff lint/format and Alembic drift checks passed. The frontend passed 12 tests and its TypeScript/Vite production build. A browser walkthrough verified account creation, first-login password change, refresh restoration, role-specific UI and logout at desktop/tablet/mobile widths. One upstream Starlette/httpx deprecation warning remains. These results do not measure completion of the business features or verify the feature's GitHub CI run.
 
 ## Development roadmap
 
@@ -189,7 +189,8 @@ Priority test areas will include cross-branch access, role permissions, applicat
 - [x] Add PostgreSQL account storage, Alembic migrations, password hashing and database integration tests.
 - [ ] Publish branches, verify the first GitHub CI run and configure branch protection.
 - [ ] Finalise the permission matrix, reporting rules and database schema.
-- [ ] Implement authentication, branch management and auditing.
+- [x] Implement the initial authentication and staff account provisioning foundation (see [SECURITY.md](SECURITY.md)); full business permissions and audit coverage remain open.
+- [ ] Implement branch management and organisation-wide auditing.
 - [ ] Implement applications and member management.
 - [ ] Implement collections, transfer tracking and weekly report review.
 - [ ] Implement dashboard calculations and CSV/PDF exports.
@@ -204,7 +205,7 @@ The first planned end-to-end workflow is: create a branch, receive an applicatio
 
 The [CI workflow](.github/workflows/ci.yml) runs on pull requests targeting `dev` or `main`, on pushes to either branch (including merges), and manually. The development flow is **feature branch -> PR into dev -> release PR into main**. Updated commits on an open PR rerun CI.
 
-Current checks use Python 3.12, Ruff lint/format and pytest against PostgreSQL 16 with a 60% backend coverage gate. CI applies migrations, checks model drift, and verifies downgrade/re-upgrade against its disposable database. A frontend job uses Node 24, `npm ci` and `npm run build`. See [branching and CI setup](docs/DEVELOPMENT.md) and [database instructions](docs/DATABASE.md). Application Docker image checks will follow when a Dockerfile exists; local Compose currently runs the database only. No live deployment is available yet.
+Current checks use Python 3.12, Ruff lint/format and pytest against PostgreSQL 16 and Redis 7 with a 60% backend coverage gate. CI applies migrations, checks model drift, and verifies downgrade/re-upgrade against its disposable database. A frontend job uses Node 24, `npm ci`, frontend tests and `npm run build`. See [branching and CI setup](docs/DEVELOPMENT.md) and [database instructions](docs/DATABASE.md). Application Docker image checks will follow when a Dockerfile exists; local Compose currently runs PostgreSQL and Redis only. No live deployment is available yet.
 
 ## Repository and documentation
 
@@ -221,7 +222,8 @@ Planned documentation includes:
 - Detailed permission table.
 - Local setup, environment configuration and deployment instructions.
 - Handover guide.
-- `AI-USAGE.md` declaring AI tools and how they were used.
+- [AI-USAGE.md](AI-USAGE.md): AI assistance declaration.
+- [SECURITY.md](SECURITY.md): implemented authentication and staff-account operations, API behavior and deployment security settings.
 - Open-source library credits and an MIT licence file.
 
 ## Outstanding decisions and inputs
@@ -235,7 +237,7 @@ Planned documentation includes:
 - Collection lock reference time, correction rules and transfer confirmation.
 - Reporting periods, automatic drafting mechanism and report snapshot behaviour.
 - KPI definitions and whether each figure uses approved reports or live records.
-- Authentication approach, translation scope and final deployment layout.
+- Translation scope and final deployment layout.
 
 These details are not fully specified by the available brief and should not be treated as settled business rules.
 

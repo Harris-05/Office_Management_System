@@ -1,6 +1,6 @@
 # Project decisions
 
-Last updated: 22 October 2026.
+Last updated: 23 October 2026.
 
 This file records agreed project decisions. Approval of a design does not mean its implementation is complete. The assignment brief remains in Task.md; current progress is tracked in Context.md.
 
@@ -120,3 +120,13 @@ The user selected Super Admin-created staff accounts with directly shared creden
 See [staff account creation design](docs/superpowers/specs/2026-10-22-staff-account-creation-design.md). The user approved temporary passwords, mandatory first-login password change, 48-hour expiry and administrator resets on 22 October 2026. Both this flow and the previously approved security foundation remain pending implementation. The implementation plan is at docs/superpowers/plans/2026-10-22-secure-staff-accounts.md.
 
 The detailed organisation permission table, branch membership model, financial reporting rules, official sample data and deployment-specific hosts/origins/proxy settings are still outstanding. Approval of this authentication design does not settle them.
+
+## Implementation update (23 October 2026)
+
+The previously approved security and staff provisioning design has now been implemented on `feature/basic-login`. This supersedes the earlier “pending implementation” status above; it does not mark the full assignment complete.
+
+- PostgreSQL-backed server-side sessions, HttpOnly cookies, CSRF/origin checks, bcrypt hashing with eligible legacy Argon2 migration, Redis rate limits, production configuration checks and default API guards are implemented.
+- Super Admin staff creation/listing/password resets, 48-hour temporary credentials, required first-login password changes, first-admin bootstrap and expired-session cleanup are implemented. No email delivery, public staff signup or account mailbox creation was added.
+- The React portal supports session restoration, sign-in/out, password changes and staff account management. Existing demo accounts remain intact; credentials are not embedded in the frontend.
+- Root `SECURITY.md` documents operations, API behavior, production settings and known limitations. `AI-USAGE.md` documents the assistance used.
+- Full business permissions, branch authorization, remaining workflows, deployment and remote CI verification remain outstanding. Work stays uncommitted on the user-requested branch; do not create a new branch or commit/push without the user's instruction.
