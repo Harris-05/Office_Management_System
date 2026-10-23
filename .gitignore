@@ -14,3 +14,8 @@ htmlcov/
 .env
 .env.*
 !.env.example
+node_modules/
+frontend/dist/
+backend/pytest-cache-files-*/
+
+docs/

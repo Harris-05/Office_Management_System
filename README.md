@@ -4,9 +4,9 @@ A web platform connecting volunteer branches with head office, alongside the org
 
 ## Project status
 
-**Initial backend and CI setup.** A minimal FastAPI application, health endpoint, smoke tests and GitHub Actions workflow now exist. Business features, database migrations, frontend and deployment remain unimplemented. A remote CI run has not yet been verified.
+**Staff account and authentication foundation.** Super Admins can create staff accounts and issue temporary-password resets. Staff complete a mandatory first-login password change. Login uses PostgreSQL-backed HttpOnly sessions, bcrypt with legacy-hash migration, CSRF protection and shared Redis rate limits. Business workflows, branch-scoped permissions and deployment remain to be implemented. See [security and account operations](SECURITY.md).
 
-This README describes the intended system. Features and infrastructure below are planned unless explicitly marked complete. See [the development guide](docs/DEVELOPMENT.md) for local setup, CI checks and branch protection instructions.
+The authentication and staff account foundation is implemented; the business workflows and deployment are still planned. See [the development guide](docs/DEVELOPMENT.md) for local setup, CI checks and branch protection instructions.
 
 ## The problem
 
@@ -25,6 +25,8 @@ FastAPI is the intended backend. The remaining application choices are the propo
 | Database | PostgreSQL | Persistent relational records |
 | Data access | SQLAlchemy | Database models and queries |
 | Migrations | Alembic | Versioned database schema changes |
+| Rate limits | Redis | Atomic shared limits across API workers |
+| Passwords | bcrypt through pwdlib | New hashes, with existing Argon2 verification during migration |
 | Frontend | React and TypeScript | Public pages and role-based management screens |
 | Frontend tooling | Vite | Development server and production build |
 | Styling | Tailwind CSS | Responsive layouts and UI styling |
@@ -33,7 +35,46 @@ FastAPI is the intended backend. The remaining application choices are the propo
 | Packaging | Docker | Reproducible application container |
 | Hosting | Render with PostgreSQL | Live application and database |
 
-Exact dependency versions will be selected and locked during setup. Authentication, translation and PDF-generation libraries are still to be selected.
+Backend runtime dependencies are pinned in `backend/requirements.txt`; `backend/requirements-dev.txt` adds development tools. Frontend dependencies are locked in `frontend/package-lock.json`. The UI uses plain CSS; Tailwind remains proposed. Translation and PDF libraries remain to be selected.
+
+## Run the staff portal
+
+Start Docker Desktop, then set up PostgreSQL and the backend from the repository root in one PowerShell terminal. Copy the example environment file only on first setup; keep an existing configuration. See [database setup and design](docs/DATABASE.md) for details.
+
+```powershell
+docker compose up -d --wait db redis
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r backend/requirements-dev.txt
+Copy-Item backend/.env.example backend/.env
+Set-Location backend
+..\.venv\Scripts\python.exe -m alembic upgrade head
+..\.venv\Scripts\python.exe -m app.seed --demo
+..\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --no-proxy-headers
+```
+
+Start the frontend in a second terminal:
+
+```powershell
+Set-Location frontend
+npm ci
+npm run dev
+```
+
+Open `http://localhost:5173`. Vite forwards `/api` requests to FastAPI on port 8000. The frontend requires Node 22.12+ (CI uses Node 24). The development proxy is not a production deployment configuration.
+
+For local development only, explicitly seeded sample accounts use password `Demo123!` (existing passwords are never overwritten). Credential shortcuts are not shipped in the frontend:
+
+| Role | Demo email |
+| --- | --- |
+| Super Admin | admin@example.test |
+| Finance Reviewer | finance@example.test |
+| Content Editor | editor@example.test |
+| Branch Lead | branch@example.test |
+| HR Lead | hr@example.test |
+
+Sign in as the sample Super Admin and select **Manage staff accounts**. Enter a staff member's name, existing email, assigned role and temporary password, then share the credentials directly. The user signs in and sets a personal password before accessing their workspace. Temporary credentials expire in 48 hours; administrators can reset them from the staff list. No public signup, email-mailbox creation or email delivery is included.
+
+Login survives refresh via a server-side session and logout revokes it. Sessions expire after 30 minutes idle or 8 hours total. New passwords require at least 15 characters and at most 72 UTF-8 bytes. On a fresh non-demo installation, create the first Super Admin with `python -m app.bootstrap` from backend; it prompts for credentials without exposing a password in command arguments. Demo seeding is refused in production. See [SECURITY.md](SECURITY.md) for endpoint contracts, deployment settings and current limitations.
 
 ## Planned architecture
 
@@ -49,7 +90,7 @@ Public visitors and authenticated staff
              PostgreSQL
 ```
 
-Serving the production frontend through FastAPI on one Render service is under consideration. The deployment layout and authentication mechanism are not finalised.
+Serving the production frontend and API on one origin is the intended deployment layout; Render deployment configuration remains pending. Authentication uses server-side session cookies.
 
 The backend must enforce permissions, branch boundaries, report transitions and record locks. Frontend controls alone do not provide access protection.
 
@@ -137,16 +178,19 @@ The completed submission must demonstrate:
 
 Additional requirements include at least **60% backend test coverage**, security against OWASP Top 10 risks, a Dockerfile and a health endpoint. Lighthouse **90+** is included in the judging criteria.
 
-Priority test areas will include cross-branch access, role permissions, application acceptance, collection lock boundaries, report transitions, approved-report immutability and financial calculations. Initial local validation passed Ruff lint/format and two smoke tests with 100% coverage of the minimal health-only backend on Python 3.14. This does not measure completion of the business features; the Python 3.12 GitHub run is still pending.
+Priority test areas will include cross-branch access, role permissions, application acceptance, collection lock boundaries, report transitions, approved-report immutability and financial calculations. On 23 October 2026, the authentication foundation passed 55 PostgreSQL/Redis-backed tests with 89.47% backend coverage on Python 3.14; Ruff lint/format and Alembic drift checks passed. The frontend passed 12 tests and its TypeScript/Vite production build. A browser walkthrough verified account creation, first-login password change, refresh restoration, role-specific UI and logout at desktop/tablet/mobile widths. One upstream Starlette/httpx deprecation warning remains. These results do not measure completion of the business features or verify the feature's GitHub CI run.
 
 ## Development roadmap
 
 - [x] Review the assignment and discuss requirements.
 - [x] Record project context and create the initial README.
 - [x] Add a minimal FastAPI foundation and GitHub Actions CI workflow.
+- [x] Add a basic demo login page, endpoint and frontend CI build.
+- [x] Add PostgreSQL account storage, Alembic migrations, password hashing and database integration tests.
 - [ ] Publish branches, verify the first GitHub CI run and configure branch protection.
 - [ ] Finalise the permission matrix, reporting rules and database schema.
-- [ ] Implement authentication, branch management and auditing.
+- [x] Implement the initial authentication and staff account provisioning foundation (see [SECURITY.md](SECURITY.md)); full business permissions and audit coverage remain open.
+- [ ] Implement branch management and organisation-wide auditing.
 - [ ] Implement applications and member management.
 - [ ] Implement collections, transfer tracking and weekly report review.
 - [ ] Implement dashboard calculations and CSV/PDF exports.
@@ -161,7 +205,7 @@ The first planned end-to-end workflow is: create a branch, receive an applicatio
 
 The [CI workflow](.github/workflows/ci.yml) runs on pull requests targeting `dev` or `main`, on pushes to either branch (including merges), and manually. The development flow is **feature branch -> PR into dev -> release PR into main**. Updated commits on an open PR rerun CI.
 
-Current checks use Python 3.12, Ruff lint and formatting, and pytest with a 60% backend coverage gate. See [branching and CI setup](docs/DEVELOPMENT.md) for commands and required GitHub branch settings. Frontend, PostgreSQL integration and Docker checks will follow when those components exist. No Dockerfile, live deployment or verified GitHub build is available yet. Do not commit secrets or real personal data.
+Current checks use Python 3.12, Ruff lint/format and pytest against PostgreSQL 16 and Redis 7 with a 60% backend coverage gate. CI applies migrations, checks model drift, and verifies downgrade/re-upgrade against its disposable database. A frontend job uses Node 24, `npm ci`, frontend tests and `npm run build`. See [branching and CI setup](docs/DEVELOPMENT.md) and [database instructions](docs/DATABASE.md). Application Docker image checks will follow when a Dockerfile exists; local Compose currently runs PostgreSQL and Redis only. No live deployment is available yet.
 
 ## Repository and documentation
 
@@ -178,7 +222,8 @@ Planned documentation includes:
 - Detailed permission table.
 - Local setup, environment configuration and deployment instructions.
 - Handover guide.
-- `AI-USAGE.md` declaring AI tools and how they were used.
+- [AI-USAGE.md](AI-USAGE.md): AI assistance declaration.
+- [SECURITY.md](SECURITY.md): implemented authentication and staff-account operations, API behavior and deployment security settings.
 - Open-source library credits and an MIT licence file.
 
 ## Outstanding decisions and inputs
@@ -192,7 +237,7 @@ Planned documentation includes:
 - Collection lock reference time, correction rules and transfer confirmation.
 - Reporting periods, automatic drafting mechanism and report snapshot behaviour.
 - KPI definitions and whether each figure uses approved reports or live records.
-- Authentication approach, translation scope and final deployment layout.
+- Translation scope and final deployment layout.
 
 These details are not fully specified by the available brief and should not be treated as settled business rules.
 
