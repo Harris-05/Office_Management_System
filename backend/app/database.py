@@ -1,6 +1,7 @@
 from collections.abc import Iterator
 from functools import lru_cache
 
+from fastapi import Request
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import DeclarativeBase, Session
@@ -30,7 +31,10 @@ def get_engine() -> Engine:
     )
 
 
-def get_db() -> Iterator[Session]:
+def get_db(request: Request) -> Iterator[Session | None]:
+    if not (request.url.path == "/api" or request.url.path.startswith("/api/")):
+        yield None
+        return
     # Closing the request's session rolls back uncommitted transactions.
     with Session(get_engine()) as session:
         yield session

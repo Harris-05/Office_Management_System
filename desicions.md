@@ -113,4 +113,10 @@ Approved, pending implementation:
 
 ## Remaining decisions
 
+### Staff provisioning update
+
+The user selected Super Admin-created staff accounts with directly shared credentials. Do not add email delivery, emailed invitations or public staff signup. The email is an account identifier, not a mailbox created by this application. The administrator assigns the role; staff cannot self-select access.
+
+See [staff account creation design](docs/superpowers/specs/2026-10-22-staff-account-creation-design.md). The user approved temporary passwords, mandatory first-login password change, 48-hour expiry and administrator resets on 22 October 2026. Both this flow and the previously approved security foundation remain pending implementation. The implementation plan is at docs/superpowers/plans/2026-10-22-secure-staff-accounts.md.
+
 The detailed organisation permission table, branch membership model, financial reporting rules, official sample data and deployment-specific hosts/origins/proxy settings are still outstanding. Approval of this authentication design does not settle them.

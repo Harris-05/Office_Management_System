@@ -4,7 +4,7 @@ A web platform connecting volunteer branches with head office, alongside the org
 
 ## Project status
 
-**Database-backed login foundation.** A React/TypeScript login page connects to FastAPI and PostgreSQL. Staff accounts are persisted with hashed passwords, roles and active status. Alembic migrations, explicit demo seeding and PostgreSQL integration tests are included. Business workflows, persistent sessions, permission enforcement and deployment remain to be implemented.
+**Staff account and authentication foundation.** Super Admins can create staff accounts and issue temporary-password resets. Staff complete a mandatory first-login password change. Login uses PostgreSQL-backed HttpOnly sessions, bcrypt with legacy-hash migration, CSRF protection and shared Redis rate limits. Business workflows, branch-scoped permissions and deployment remain to be implemented. See [security and account operations](SECURITY.md).
 
 This README describes the intended system. Features and infrastructure below are planned unless explicitly marked complete. See [the development guide](docs/DEVELOPMENT.md) for local setup, CI checks and branch protection instructions.
 
@@ -25,6 +25,8 @@ FastAPI is the intended backend. The remaining application choices are the propo
 | Database | PostgreSQL | Persistent relational records |
 | Data access | SQLAlchemy | Database models and queries |
 | Migrations | Alembic | Versioned database schema changes |
+| Rate limits | Redis | Atomic shared limits across API workers |
+| Passwords | bcrypt through pwdlib | New hashes, with existing Argon2 verification during migration |
 | Frontend | React and TypeScript | Public pages and role-based management screens |
 | Frontend tooling | Vite | Development server and production build |
 | Styling | Tailwind CSS | Responsive layouts and UI styling |
@@ -33,21 +35,21 @@ FastAPI is the intended backend. The remaining application choices are the propo
 | Packaging | Docker | Reproducible application container |
 | Hosting | Render with PostgreSQL | Live application and database |
 
-Backend runtime dependencies are pinned in `backend/requirements.txt`; `backend/requirements-dev.txt` adds development tools. Frontend dependencies are locked in `frontend/package-lock.json`. The first login page uses plain CSS; Tailwind remains proposed for later UI work. Passwords use Argon2 through pwdlib; session authentication, translation and PDF libraries are still to be selected.
+Backend runtime dependencies are pinned in `backend/requirements.txt`; `backend/requirements-dev.txt` adds development tools. Frontend dependencies are locked in `frontend/package-lock.json`. The UI uses plain CSS; Tailwind remains proposed. Translation and PDF libraries remain to be selected.
 
-## Run the basic login prototype
+## Run the staff portal
 
 Start Docker Desktop, then set up PostgreSQL and the backend from the repository root in one PowerShell terminal. Copy the example environment file only on first setup; keep an existing configuration. See [database setup and design](docs/DATABASE.md) for details.
 
 ```powershell
-docker compose up -d --wait db
+docker compose up -d --wait db redis
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r backend/requirements-dev.txt
 Copy-Item backend/.env.example backend/.env
 Set-Location backend
 ..\.venv\Scripts\python.exe -m alembic upgrade head
 ..\.venv\Scripts\python.exe -m app.seed --demo
-..\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
+..\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --no-proxy-headers
 ```
 
 Start the frontend in a second terminal:
@@ -60,7 +62,7 @@ npm run dev
 
 Open `http://localhost:5173`. Vite forwards `/api` requests to FastAPI on port 8000. The frontend requires Node 22.12+ (CI uses Node 24). The development proxy is not a production deployment configuration.
 
-Expand **Try a demo account** to fill the form, then click **Sign in**. All demo accounts use password `Demo123!`:
+For local development only, explicitly seeded sample accounts use password `Demo123!` (existing passwords are never overwritten). Credential shortcuts are not shipped in the frontend:
 
 | Role | Demo email |
 | --- | --- |
@@ -70,7 +72,9 @@ Expand **Try a demo account** to fill the form, then click **Sign in**. All demo
 | Branch Lead | branch@example.test |
 | HR Lead | hr@example.test |
 
-Sample accounts are explicitly seeded into PostgreSQL; login no longer uses a hard-coded account dictionary. Seed reruns leave existing users unchanged. Only password hashes are stored, and inactive users cannot log in. Login still returns a profile without issuing a session/token or enforcing role permissions. The welcome screen remains in React memory and resets on refresh. **Sign out** clears that screen. Full secure authentication remains a later milestone.
+Sign in as the sample Super Admin and select **Manage staff accounts**. Enter a staff member's name, existing email, assigned role and temporary password, then share the credentials directly. The user signs in and sets a personal password before accessing their workspace. Temporary credentials expire in 48 hours; administrators can reset them from the staff list. No public signup, email-mailbox creation or email delivery is included.
+
+Login survives refresh via a server-side session and logout revokes it. Sessions expire after 30 minutes idle or 8 hours total. New passwords require at least 15 characters and at most 72 UTF-8 bytes. On a fresh non-demo installation, create the first Super Admin with `python -m app.bootstrap` from backend; it prompts for credentials without exposing a password in command arguments. Demo seeding is refused in production. See [SECURITY.md](SECURITY.md) for endpoint contracts, deployment settings and current limitations.
 
 ## Planned architecture
 
@@ -86,7 +90,7 @@ Public visitors and authenticated staff
              PostgreSQL
 ```
 
-Serving the production frontend through FastAPI on one Render service is under consideration. The deployment layout and authentication mechanism are not finalised.
+Serving the production frontend and API on one origin is the intended deployment layout; Render deployment configuration remains pending. Authentication uses server-side session cookies.
 
 The backend must enforce permissions, branch boundaries, report transitions and record locks. Frontend controls alone do not provide access protection.
 

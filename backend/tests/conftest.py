@@ -1,4 +1,5 @@
 import os
+import uuid
 from pathlib import Path
 
 import pytest
@@ -8,10 +9,16 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
 
+os.environ.setdefault("ALLOWED_HOSTS", '["localhost","127.0.0.1","testserver"]')
+os.environ.setdefault("ALLOWED_ORIGINS", '["http://testserver","http://localhost:5173"]')
+
 import app.main as main_module
+from app.config import get_settings
 from app.database import get_db
 from app.main import app
-from app.seed import seed_demo_users
+from app.models import User
+from app.passwords import hash_password
+from app.seed import DEMO_ACCOUNTS
 
 
 @pytest.fixture(scope="session")
@@ -48,9 +55,24 @@ def db_session(engine):
         transaction.rollback()
 
 
+@pytest.fixture(scope="session")
+def demo_hash():
+    return hash_password("Demo123!")
+
+
 @pytest.fixture(autouse=True)
-def database_overrides(db_session, engine, monkeypatch):
-    seed_demo_users(db_session)
+def database_overrides(db_session, engine, monkeypatch, demo_hash):
+    monkeypatch.setenv("RATE_NAMESPACE", f"test-{uuid.uuid4().hex}")
+    monkeypatch.setenv("REDIS_URL", os.environ.get("TEST_REDIS_URL", "redis://localhost:6379/2"))
+    get_settings.cache_clear()
+    # Reuse a real hash in fixtures; password-policy and seeding tests exercise real hashing.
+    db_session.add_all(
+        [
+            User(email=email, name=name, role=role, password_hash=demo_hash)
+            for email, name, role in DEMO_ACCOUNTS
+        ]
+    )
+    db_session.flush()
 
     def override_db():
         yield db_session
@@ -59,3 +81,9 @@ def database_overrides(db_session, engine, monkeypatch):
     monkeypatch.setattr(main_module, "get_engine", lambda: engine)
     yield
     app.dependency_overrides.clear()
+    from app.rate_limits import get_redis
+
+    client = get_redis()
+    for key in client.scan_iter(match=f"{get_settings().rate_namespace}:*"):
+        client.delete(key)
+    get_settings.cache_clear()

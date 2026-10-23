@@ -1,7 +1,8 @@
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import func, select, text
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from test_secure_flow import browser, csrf
 
 from app.database import get_db
 from app.main import app
@@ -21,9 +22,17 @@ def test_seed_is_idempotent_and_preserves_existing_accounts(db_session):
     assert user.password_hash == original_hash
     assert user.name == "Changed in database"
     assert not user.is_active
-    assert original_hash.startswith("$argon2id$")
+    assert original_hash.startswith("$2b$")
     assert verify_password("Demo123!", original_hash)
     assert user.created_at.tzinfo is not None
+
+
+def test_seed_creates_only_missing_accounts(db_session):
+    db_session.execute(delete(User).where(User.email == "hr@example.test"))
+    assert seed_demo_users(db_session) == 1
+    user = find_user_by_email(db_session, "hr@example.test")
+    assert user.password_hash.startswith("$2b$")
+    assert verify_password("Demo123!", user.password_hash)
 
 
 def test_login_reads_new_records_from_database(db_session):
@@ -36,17 +45,22 @@ def test_login_reads_new_records_from_database(db_session):
         )
     )
     db_session.flush()
-    with TestClient(app) as client:
+    with browser() as client:
+        csrf(client)
         response = client.post(
             "/api/login", json={"email": "new@example.test", "password": "different-password"}
         )
-    assert response.json() == {"name": "New Staff", "email": "new@example.test", "role": "HR Lead"}
+    assert response.status_code == 200
+    assert response.json()["name"] == "New Staff"
+    assert response.json()["email"] == "new@example.test"
+    assert response.json()["role"] == "HR Lead"
 
 
 def test_inactive_users_cannot_log_in(db_session):
     find_user_by_email(db_session, "admin@example.test").is_active = False
     db_session.flush()
-    with TestClient(app) as client:
+    with browser() as client:
+        csrf(client)
         response = client.post(
             "/api/login", json={"email": "admin@example.test", "password": "Demo123!"}
         )
@@ -91,4 +105,4 @@ def test_database_failure_returns_safe_service_unavailable():
             "/api/login", json={"email": "admin@example.test", "password": "Demo123!"}
         )
     assert response.status_code == 503
-    assert response.json() == {"detail": "Database temporarily unavailable."}
+    assert response.json() == {"detail": "Service temporarily unavailable."}

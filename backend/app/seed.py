@@ -4,6 +4,7 @@ import argparse
 
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.database import get_engine
 from app.models import User, UserRole
 from app.passwords import hash_password
@@ -20,6 +21,8 @@ DEMO_ACCOUNTS = [
 
 def seed_demo_users(session: Session) -> int:
     """Caller owns the transaction; existing users/passwords are never overwritten."""
+    if get_settings().environment == "production":
+        raise ValueError("Demo seeding is forbidden in production.")
     created = 0
     for email, name, role in DEMO_ACCOUNTS:
         if find_user_by_email(session, email) is None:
