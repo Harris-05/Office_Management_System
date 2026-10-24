@@ -4,9 +4,9 @@ A web platform connecting volunteer branches with head office, alongside the org
 
 ## Project status
 
-**Initial backend and CI setup.** A minimal FastAPI application, health endpoint, smoke tests and GitHub Actions workflow now exist. Business features, database migrations, frontend and deployment remain unimplemented. A remote CI run has not yet been verified.
+**Public pages and staff account foundation.** Anyone can open the English/Urdu public website at `/`, with separate About, Programs, Branches, Events, Get Involved and Contact pages; staff sign-in/workspace is at `/staff`. Super Admins can create staff accounts and issue temporary-password resets. Staff complete a mandatory first-login password change. Login uses PostgreSQL-backed HttpOnly sessions, bcrypt with legacy-hash migration, CSRF protection and shared Redis rate limits. Business workflows, branch-scoped permissions and deployment remain to be implemented. See [security and account operations](SECURITY.md).
 
-This README describes the intended system. Features and infrastructure below are planned unless explicitly marked complete. See [the development guide](docs/DEVELOPMENT.md) for local setup, CI checks and branch protection instructions.
+The authentication and staff account foundation is implemented; the business workflows and deployment are still planned. See [the development guide](docs/DEVELOPMENT.md) for local setup, CI checks and branch protection instructions.
 
 ## The problem
 
@@ -25,6 +25,8 @@ FastAPI is the intended backend. The remaining application choices are the propo
 | Database | PostgreSQL | Persistent relational records |
 | Data access | SQLAlchemy | Database models and queries |
 | Migrations | Alembic | Versioned database schema changes |
+| Rate limits | Redis | Atomic shared limits across API workers |
+| Passwords | bcrypt through pwdlib | New hashes, with existing Argon2 verification during migration |
 | Frontend | React and TypeScript | Public pages and role-based management screens |
 | Frontend tooling | Vite | Development server and production build |
 | Styling | Tailwind CSS | Responsive layouts and UI styling |
@@ -33,7 +35,81 @@ FastAPI is the intended backend. The remaining application choices are the propo
 | Packaging | Docker | Reproducible application container |
 | Hosting | Render with PostgreSQL | Live application and database |
 
-Exact dependency versions will be selected and locked during setup. Authentication, translation and PDF-generation libraries are still to be selected.
+Backend runtime dependencies are pinned in `backend/requirements.txt`; `backend/requirements-dev.txt` adds development tools. Frontend dependencies are locked in `frontend/package-lock.json`. The UI uses plain CSS; Tailwind remains proposed. Translation and PDF libraries remain to be selected.
+
+## Public website
+
+Start the frontend from the repository root:
+
+```powershell
+Set-Location frontend
+npm ci
+npm run dev
+```
+
+Open `http://localhost:5173/`. Public browsing requires no sign-in. Start the backend, PostgreSQL and Redis using the setup below to load the catalogue and submit forms. The site shares responsive navigation, English/Urdu switching with RTL, saved language, reduced-motion support and staff-entry links. Direct navigation uses document URLs; production hosting must serve the frontend entry point for these routes.
+
+The public visual identity uses dark burgundy (`#500F1C`), light grey and white, with near-black body text. The deep-wine Home hero (`#300910`) pairs a large headline with a code-drawn network globe inspired by the supplied reference. The globe spins gently on its own, with a smoothed contribution from native page scrolling. A pause/resume control is available; motion stops offscreen, in hidden tabs and under reduced motion. Canvas has a static SVG fallback. Connections are illustrative, rather than real branch locations.
+
+“Make your time count” holds one panel in place and changes its heading/paragraph as visitors scroll forward or backward. Three labeled step buttons and previous/next controls allow direct or keyboard selection. The CTA and controls remain mounted while text changes. Reserved panel height prevents text replacement shifting the layout. Reduced motion and viewports too short for the stage use the same single panel with manual controls. Separate public routes and staff styling remain unchanged.
+
+The larger “Built around people” introduction includes both explanatory paragraphs in a padded reading card. The final section groups its introduction, Branches button and Get involved link, with consistent spacing through the footer. Compact story sizing keeps scrolling active on common shorter laptop viewports, including 1280×600 and 1366×650 in both languages.
+
+Public routes are `/`, `/about`, `/programs`, `/branches`, `/events`, `/get-involved` and `/contact`. About explains the network. Programs, searchable branches and filterable upcoming/past events load from PostgreSQL. Home previews the next two events. Event links reach the correct article after loading. Contact and volunteer-interest forms save private submissions, prevent duplicate retries and show a reference. Fields, validation, consent, loading/error/retry/success states and the catalogue support English/Urdu. The site remains photo-free at the user's request.
+
+After applying migrations, explicitly seed the fictional public catalogue in development:
+
+```powershell
+Set-Location backend
+..\.venv\Scripts\python.exe -m app.public_seed --demo
+```
+
+This creates three sample branches, three programs and six events with dates relative to the first seed. Re-running preserves existing content and edits; seeding is blocked in production. Every sample is marked as demo content. Replace it with official records before presenting the site as a real organisation. No automatic email is sent, and expressions of volunteer interest do not confirm a placement.
+
+Public API: `GET /api/public/catalog`, `POST /api/public/messages`, `POST /api/public/volunteers`. Submission endpoints use the existing anonymous CSRF session, allowed-origin checks, request-size bounds and Redis limits (five new submissions per IP per ten minutes). The caller supplies a UUID request reference; identical retries in the same session return the same receipt, and conflicting reuse returns 409. Public responses contain no private messages. `GET /api/staff/public-submissions?offset=0` requires staff authentication: Super Admin sees both kinds, HR Lead sees volunteer interests, and other roles are denied. This is an API inbox; a staff inbox screen and CMS editing remain separate work.
+
+Visitor names/emails/messages support the stated enquiry purpose and expire after 90 days. Schedule `python -m app.cleanup_public` daily in the deployment environment; it deletes expired submissions, and the staff API already excludes them. No IP address is stored with correspondence. Infrastructure backups need their own retention policy when hosting is configured.
+
+Verification for this iteration: 48 frontend tests and the TypeScript/Vite build pass; 67 PostgreSQL-backed backend tests pass with 90.60% coverage; Ruff lint/format and Alembic model-drift checks pass. The browser check covers 42 layouts (seven pages, two languages, three viewport sizes). Actual browser submissions saved Contact and volunteer records. Additional wheel-input checks cover eight English/Urdu short-screen layouts with stable paragraph heights and no backward jump. Story step buttons reposition directly, avoiding the earlier selected→first→selected flicker during smooth scrolling; the paragraph itself still animates. Reduced motion and short Urdu layouts retain manual selection. Earlier checks cover globe controls, Canvas/rAF fallback and public/staff separation. Lighthouse performance has not been measured.
+
+## Run the staff portal
+
+Start Docker Desktop, then set up PostgreSQL and the backend from the repository root in one PowerShell terminal. Copy the example environment file only on first setup; keep an existing configuration. See [database setup and design](docs/DATABASE.md) for details.
+
+```powershell
+docker compose up -d --wait db redis
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r backend/requirements-dev.txt
+Copy-Item backend/.env.example backend/.env
+Set-Location backend
+..\.venv\Scripts\python.exe -m alembic upgrade head
+..\.venv\Scripts\python.exe -m app.seed --demo
+..\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --no-proxy-headers
+```
+
+Start the frontend in a second terminal:
+
+```powershell
+Set-Location frontend
+npm ci
+npm run dev
+```
+
+Open `http://localhost:5173/staff` or use **Staff sign-in** on Home. Vite forwards `/api` requests to FastAPI on port 8000. The frontend requires Node 22.12+ (CI uses Node 24). The development proxy is not a production deployment configuration; production hosting must serve the frontend document for the `/staff` route.
+
+For local development only, explicitly seeded sample accounts use password `Demo123!` (existing passwords are never overwritten). Credential shortcuts are not shipped in the frontend:
+
+| Role | Demo email |
+| --- | --- |
+| Super Admin | admin@example.test |
+| Finance Reviewer | finance@example.test |
+| Content Editor | editor@example.test |
+| Branch Lead | branch@example.test |
+| HR Lead | hr@example.test |
+
+Sign in as the sample Super Admin and select **Manage staff accounts**. Enter a staff member's name, existing email, assigned role and temporary password, then share the credentials directly. The user signs in and sets a personal password before accessing their workspace. Temporary credentials expire in 48 hours; administrators can reset them from the staff list. No public signup, email-mailbox creation or email delivery is included.
+
+Login survives refresh via a server-side session and logout revokes it. Sessions expire after 30 minutes idle or 8 hours total. New passwords require at least 15 characters and at most 72 UTF-8 bytes. On a fresh non-demo installation, create the first Super Admin with `python -m app.bootstrap` from backend; it prompts for credentials without exposing a password in command arguments. Demo seeding is refused in production. See [SECURITY.md](SECURITY.md) for endpoint contracts, deployment settings and current limitations.
 
 ## Planned architecture
 
@@ -49,7 +125,7 @@ Public visitors and authenticated staff
              PostgreSQL
 ```
 
-Serving the production frontend through FastAPI on one Render service is under consideration. The deployment layout and authentication mechanism are not finalised.
+Serving the production frontend and API on one origin is the intended deployment layout; Render deployment configuration remains pending. Authentication uses server-side session cookies.
 
 The backend must enforce permissions, branch boundaries, report transitions and record locks. Frontend controls alone do not provide access protection.
 
@@ -137,16 +213,20 @@ The completed submission must demonstrate:
 
 Additional requirements include at least **60% backend test coverage**, security against OWASP Top 10 risks, a Dockerfile and a health endpoint. Lighthouse **90+** is included in the judging criteria.
 
-Priority test areas will include cross-branch access, role permissions, application acceptance, collection lock boundaries, report transitions, approved-report immutability and financial calculations. Initial local validation passed Ruff lint/format and two smoke tests with 100% coverage of the minimal health-only backend on Python 3.14. This does not measure completion of the business features; the Python 3.12 GitHub run is still pending.
+Priority test areas will include cross-branch access, role permissions, application acceptance, collection lock boundaries, report transitions, approved-report immutability and financial calculations. On 23 October 2026, the authentication foundation passed 55 PostgreSQL/Redis-backed tests with 89.47% backend coverage on Python 3.14; Ruff lint/format and Alembic drift checks passed. The frontend passed 12 tests and its TypeScript/Vite production build. A browser walkthrough verified account creation, first-login password change, refresh restoration, role-specific UI and logout at desktop/tablet/mobile widths. One upstream Starlette/httpx deprecation warning remains. These results do not measure completion of the business features or verify the feature's GitHub CI run.
 
 ## Development roadmap
 
 - [x] Review the assignment and discuss requirements.
 - [x] Record project context and create the initial README.
 - [x] Add a minimal FastAPI foundation and GitHub Actions CI workflow.
+- [x] Add a basic demo login page, endpoint and frontend CI build.
+- [x] Add PostgreSQL account storage, Alembic migrations, password hashing and database integration tests.
+- [x] Add the public Home page with English/Urdu, responsive navigation and separate staff entry.
 - [ ] Publish branches, verify the first GitHub CI run and configure branch protection.
 - [ ] Finalise the permission matrix, reporting rules and database schema.
-- [ ] Implement authentication, branch management and auditing.
+- [x] Implement the initial authentication and staff account provisioning foundation (see [SECURITY.md](SECURITY.md)); full business permissions and audit coverage remain open.
+- [ ] Implement branch management and organisation-wide auditing.
 - [ ] Implement applications and member management.
 - [ ] Implement collections, transfer tracking and weekly report review.
 - [ ] Implement dashboard calculations and CSV/PDF exports.
@@ -161,7 +241,7 @@ The first planned end-to-end workflow is: create a branch, receive an applicatio
 
 The [CI workflow](.github/workflows/ci.yml) runs on pull requests targeting `dev` or `main`, on pushes to either branch (including merges), and manually. The development flow is **feature branch -> PR into dev -> release PR into main**. Updated commits on an open PR rerun CI.
 
-Current checks use Python 3.12, Ruff lint and formatting, and pytest with a 60% backend coverage gate. See [branching and CI setup](docs/DEVELOPMENT.md) for commands and required GitHub branch settings. Frontend, PostgreSQL integration and Docker checks will follow when those components exist. No Dockerfile, live deployment or verified GitHub build is available yet. Do not commit secrets or real personal data.
+Current checks use Python 3.12, Ruff lint/format and pytest against PostgreSQL 16 and Redis 7 with a 60% backend coverage gate. CI applies migrations, checks model drift, and verifies downgrade/re-upgrade against its disposable database. A frontend job uses Node 24, `npm ci`, frontend tests and `npm run build`. See [branching and CI setup](docs/DEVELOPMENT.md) and [database instructions](docs/DATABASE.md). Application Docker image checks will follow when a Dockerfile exists; local Compose currently runs PostgreSQL and Redis only. No live deployment is available yet.
 
 ## Repository and documentation
 
@@ -178,7 +258,8 @@ Planned documentation includes:
 - Detailed permission table.
 - Local setup, environment configuration and deployment instructions.
 - Handover guide.
-- `AI-USAGE.md` declaring AI tools and how they were used.
+- [AI-USAGE.md](AI-USAGE.md): AI assistance declaration.
+- [SECURITY.md](SECURITY.md): implemented authentication and staff-account operations, API behavior and deployment security settings.
 - Open-source library credits and an MIT licence file.
 
 ## Outstanding decisions and inputs
@@ -192,7 +273,7 @@ Planned documentation includes:
 - Collection lock reference time, correction rules and transfer confirmation.
 - Reporting periods, automatic drafting mechanism and report snapshot behaviour.
 - KPI definitions and whether each figure uses approved reports or live records.
-- Authentication approach, translation scope and final deployment layout.
+- Translation scope and final deployment layout.
 
 These details are not fully specified by the available brief and should not be treated as settled business rules.
 

@@ -1,0 +1,42 @@
+/* Home adapts as a full composition, including narrow phones and portrait tablets. */
+.public-page-home :is(.home-hero-copy, .home-letter, .program-scene-intro, .program-scene-presentation, .home-closing-copy) {
+  min-inline-size: 0;
+}
+
+@media (max-width: 900px) {
+  .public-page-home {
+    --home-gutter: clamp(20px, 5vw, 32px);
+    --home-section-space: 56px;
+  }
+
+  .public-page-home :is(.home-hero-sheet, .home-about, .home-closing, .directory-heading, .home-event-list) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+  }
+
+  .public-page-home .home-hero-copy { max-inline-size: 54ch; }
+  .public-page-home .home-hero-actions { flex-direction: row; align-items: center; gap: 20px; }
+  .public-page-home .network-globe { max-inline-size: 380px; }
+  .public-page-home .home-about { min-height: 0; align-items: start; }
+  .public-page-home .home-letter { padding: 24px; }
+  .public-page-home .home-letter p { font-size: 16px; line-height: 1.8; }
+  .public-page-home .home-closing { padding-block: 48px; }
+  .public-page-home .home-closing-copy > p { font-size: 18px; }
+  .public-page-home .home-closing-actions { gap: 20px; }
+  .public-page-home .home-footer-main { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; }
+  .public-page-home .home-footer-main > div:first-child { grid-column: 1 / -1; }
+  .public-page-home .home-footer-main > div:last-child { grid-column: auto; }
+  html[lang="ur"] .public-page-home .home-letter p { font-size: 19px; line-height: 1.95; }
+}
+
+@media (max-width: 380px) {
+  .public-page-home .home-header { gap: 8px; }
+  .public-page-home .home-wordmark { font-size: 16px; }
+  .public-page-home .home-mark { width: 26px; height: 30px; flex-shrink: 0; }
+  .public-page-home .home-header-tools { gap: 4px; flex-shrink: 0; }
+  .public-page-home .home-languages { gap: 6px; }
+  .public-page-home .home-languages button[lang="en"] { font-size: 13px; }
+  .public-page-home .home-menu-button { flex-shrink: 0; }
+  .public-page-home .home-hero-actions { align-items: start; flex-direction: column; }
+  .public-page-home .home-footer-main { grid-template-columns: minmax(0, 1fr); }
+}

@@ -34,20 +34,21 @@ git push -u origin feature/short-description
 
 ## Current checks
 
-The `CI` workflow exposes a `Backend checks` job using Python 3.12:
+The `CI` workflow exposes a `Backend checks` job using Python 3.12 and PostgreSQL 16/Redis 7 services:
 
 1. Install backend development dependencies.
 2. Run Ruff lint checks.
 3. Check Ruff formatting.
-4. Run pytest with branch coverage and a minimum 60% backend coverage gate.
+4. Apply Alembic migrations, check model/schema drift, and verify downgrade/re-upgrade against a disposable PostgreSQL 16 service.
+5. Run database-backed pytest tests with branch coverage and a minimum 60% backend coverage gate, using isolated Redis keys for limit tests.
 
-The current backend is only a FastAPI liveness endpoint and its smoke tests. Its coverage does not demonstrate completion of the business requirements. Add permission and workflow tests as features are implemented.
+The backend includes server-side session authentication and staff provisioning. Coverage does not demonstrate completion of the business requirements; add permission and workflow tests as features are implemented.
 
-Frontend builds, PostgreSQL integration tests and Docker validation must be added when those components exist. There are no placeholder jobs that silently skip missing applications.
+The `Frontend build` job uses Node 24, installs from `frontend/package-lock.json` with `npm ci`, runs the frontend test suite, then `npm run build` (TypeScript validation and Vite production build). Run these commands from `frontend` locally too. Application Docker image validation will follow when a Dockerfile exists.
 
 ## Local validation (PowerShell)
 
-From the repository root, using Python 3.12 or later:
+First follow [database setup](DATABASE.md) to start PostgreSQL, configure backend/.env, apply migrations and create the dedicated test database. From the repository root, using Python 3.12 or later:
 
 ```powershell
 python -m venv .venv
@@ -55,11 +56,12 @@ python -m venv .venv
 Set-Location backend
 ..\.venv\Scripts\python.exe -m ruff check .
 ..\.venv\Scripts\python.exe -m ruff format --check .
+$env:TEST_DATABASE_URL = 'postgresql+psycopg://branch_office:local_dev_password@localhost:5432/branch_office_test'
 ..\.venv\Scripts\python.exe -m pytest
-..\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
+..\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --no-proxy-headers
 ```
 
-Visit `/health` for process liveness or `/docs` for the generated API documentation. The endpoint does not check database readiness.
+Visit `/health` for process liveness, `/health/ready` for database/schema readiness or `/docs` for generated API documentation.
 
 ## Protect dev and main on GitHub
 
@@ -67,6 +69,7 @@ Workflow files run checks; repository rules enforce whether a merge is allowed. 
 
 - Require a pull request before merging.
 - Require the `Backend checks` status check from GitHub Actions.
+- Also require `Frontend build` once the basic-login workflow has run.
 - Require branches to be up to date before merging.
 - Block force pushes and branch deletion.
 - Apply rules to administrators/bypass users as appropriate.
