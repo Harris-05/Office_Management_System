@@ -3,7 +3,19 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, String, Text, false, func
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Sequence,
+    String,
+    Text,
+    false,
+    func,
+)
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -20,6 +32,31 @@ class PublishedRecord:
 
 class Branch(PublishedRecord, Base):
     __tablename__ = "public_branches"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('Forming','Active','Paused','Closed')", name="ck_branch_status"
+        ),
+        CheckConstraint("NOT is_published OR status = 'Active'", name="ck_branch_publication"),
+        CheckConstraint("status <> 'Closed' OR lead_id IS NULL", name="ck_branch_closed_lead"),
+    )
+    number_sequence = Sequence("branch_number_seq", metadata=Base.metadata)
+    number: Mapped[int] = mapped_column(
+        Integer, number_sequence, server_default=number_sequence.next_value(), unique=True
+    )
+    status: Mapped[str] = mapped_column(
+        String(10), default="Forming", server_default="Forming", index=True
+    )
+    lead_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), unique=True
+    )
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    @property
+    def code(self) -> str:
+        return f"BR-{self.number:06d}"
+
     name: Mapped[str] = mapped_column(String(160))
     name_ur: Mapped[str] = mapped_column(String(160))
     city: Mapped[str] = mapped_column(String(100))
@@ -28,6 +65,18 @@ class Branch(PublishedRecord, Base):
     address_ur: Mapped[str] = mapped_column(String(300))
     hours: Mapped[str] = mapped_column(String(160))
     hours_ur: Mapped[str] = mapped_column(String(160))
+
+
+class BranchAudit(Base):
+    __tablename__ = "branch_audits"
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    branch_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("public_branches.id"), index=True)
+    actor_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    action: Mapped[str] = mapped_column(String(30))
+    reason: Mapped[str | None] = mapped_column(String(500))
+    before: Mapped[dict | None] = mapped_column(JSONB)
+    after: Mapped[dict] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class Program(PublishedRecord, Base):
@@ -52,6 +101,16 @@ class PublicSubmission(Base):
     __tablename__ = "public_submissions"
     __table_args__ = (
         CheckConstraint("kind IN ('contact', 'volunteer')", name="ck_submission_kind"),
+        CheckConstraint(
+            "(kind = 'contact' AND review_status IS NULL AND review_version IS NULL "
+            "AND reviewed_at IS NULL AND reviewer_id IS NULL AND review_reason IS NULL) OR "
+            "(kind = 'volunteer' AND review_status IS NOT NULL AND review_version IS NOT NULL "
+            "AND review_version > 0 AND ((review_status = 'Pending' AND reviewed_at IS NULL "
+            "AND reviewer_id IS NULL AND review_reason IS NULL) OR "
+            "(review_status IN ('Accepted','Declined') AND reviewed_at IS NOT NULL "
+            "AND review_reason IS NOT NULL)))",
+            name="ck_submission_review",
+        ),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     request_id: Mapped[uuid.UUID] = mapped_column(unique=True)
@@ -66,3 +125,19 @@ class PublicSubmission(Base):
     branch_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("public_branches.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    review_status: Mapped[str | None] = mapped_column(
+        String(10),
+        index=True,
+        default=lambda ctx: (
+            "Pending" if ctx.get_current_parameters().get("kind") == "volunteer" else None
+        ),
+    )
+    review_version: Mapped[int | None] = mapped_column(
+        Integer,
+        default=lambda ctx: 1 if ctx.get_current_parameters().get("kind") == "volunteer" else None,
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reviewer_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL")
+    )
+    review_reason: Mapped[str | None] = mapped_column(String(500))

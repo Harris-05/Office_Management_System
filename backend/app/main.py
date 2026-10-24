@@ -10,10 +10,12 @@ from sqlalchemy.exc import SQLAlchemyError
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from app.branches import router as branches_router
 from app.config import get_settings
 from app.database import get_engine
 from app.dependencies import Principal, require_api_access
 from app.login import router as login_router
+from app.membership import router as membership_router
 from app.middleware import SecurityMiddleware
 from app.public import router as public_router
 from app.rate_limits import get_redis
@@ -51,6 +53,8 @@ def create_app() -> FastAPI:
     api.include_router(login_router)
     api.include_router(staff_router)
     api.include_router(public_router)
+    api.include_router(branches_router)
+    api.include_router(membership_router)
     app.include_router(api)
     app.add_middleware(SecurityMiddleware)
     app.add_middleware(

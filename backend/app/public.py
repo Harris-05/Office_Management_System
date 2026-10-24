@@ -1,11 +1,12 @@
 import hashlib
 import json
+import unicodedata
 import uuid
 from datetime import datetime, timedelta
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
@@ -67,7 +68,10 @@ class Catalogue(BaseModel):
 def catalogue(db: DB):
     return {
         "branches": db.scalars(
-            select(Branch).where(Branch.is_published).order_by(Branch.city, Branch.id).limit(100)
+            select(Branch)
+            .where(Branch.is_published, Branch.status == "Active")
+            .order_by(Branch.city, Branch.id)
+            .limit(100)
         ).all(),
         "programs": db.scalars(
             select(Program)
@@ -78,7 +82,7 @@ def catalogue(db: DB):
         "events": db.scalars(
             select(PublicEvent)
             .join(Branch)
-            .where(PublicEvent.is_published, Branch.is_published)
+            .where(PublicEvent.is_published, Branch.is_published, Branch.status == "Active")
             .order_by(PublicEvent.starts_at.desc(), PublicEvent.id)
             .limit(200)
         ).all(),
@@ -94,6 +98,16 @@ class SubmissionInput(BaseModel):
     message: str = Field(min_length=10, max_length=4000)
     consent: Literal[True]
     branch_id: uuid.UUID | None = None
+
+    @field_validator("name", "email", "subject", "message")
+    @classmethod
+    def safe_text(cls, value: str, info: ValidationInfo) -> str:
+        for char in value:
+            if info.field_name == "message" and char in "\n\r\t":
+                continue
+            if unicodedata.category(char) in {"Cc", "Cs"}:
+                raise ValueError("Control characters are not allowed.")
+        return value
 
 
 class Receipt(BaseModel):
@@ -124,7 +138,9 @@ def save_submission(
     if kind == "volunteer" and body.branch_id is None:
         raise HTTPException(422, "Choose a published branch.")
     if body.branch_id is not None and not db.scalar(
-        select(Branch.id).where(Branch.id == body.branch_id, Branch.is_published)
+        select(Branch.id).where(
+            Branch.id == body.branch_id, Branch.is_published, Branch.status == "Active"
+        )
     ):
         raise HTTPException(422, "Choose a published branch.")
     ip = request.client.host if request.client else "unknown"

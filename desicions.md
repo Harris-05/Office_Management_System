@@ -200,3 +200,27 @@ The previously approved security and staff provisioning design has now been impl
 - Real mobile Chrome can report fractional CSS stage heights while innerHeight is integral. Allow1CSSpixel rounding tolerance when deciding if the story fits, preventing sticky/natural height feedback and document jumps. Keep readable oversized-stage fallback; do not intercept wheel/touch.
 - Home stacks at900px to avoid compressed portrait tablet columns. Use consistent20–32px side gutters; compact the header below380px so menu/language controls keep the right gutter. Responsive overrides are scoped to Home.
 - Exact375x667 wheel reproduction recorded192pinning changes before and0after; failing regression now passes. Twelve bilingual phone/tablet viewport checks and48frontend tests/build pass.
+
+## Staff login visual consistency (24 October 2026)
+
+- Apply the approved public burgundy theme to the staff entry and shared staff controls. Scope new styles beneath staff-shell to prevent changing public pages. Preserve existing authentication/session and form behavior.
+- Keep a split brand/form layout on desktop, stack below760px, use16px labels/inputs and min54px input/56px submit heights. Make public Home reachable from the logo and a labelled backlink. Success/error states keep semantic colour and text, with visible focus.
+
+## Branch management approval and implementation (24 October 2026)
+
+- User approved docs/superpowers/specs/2026-10-24-branch-management-design.md. Extend existing branch records; generated immutable BR codes, Forming/Active/Paused/Closed, one lead/branch and one branch/lead, SA registry management and assigned-only Lead reads. Other internal roles denied in this module.
+- Only published Active branches appear publicly or accept new volunteer interests. Pause/close unpublish; reactivation remains draft. Close is terminal, retains audit and releases assignment. No deletion or silent transfer.
+- Use PostgreSQL sequence allocation, row locks plus expected revision, uniqueness constraints and atomic BranchAudit snapshots. Failed/conflicting writes retain drafts. POST commands match current CSRF/CORS conventions. Search/control input is bounded and validated before SQL.
+- Resolve prior narrow auth findings: generation guards prevent late password callbacks restoring logged-out UI; malformed NUL login is422; reset target NOWAIT lock returns controlled409 rather than entering opposing actor/target waits. Existing wrong JSON shapes already validated correctly.
+- Keep direct /staff/branches authenticated entry and browser navigation. Staff uses English controls, bilingual content/RTL Urdu fields, and the burgundy theme. Scoped list/detail/form/audit screens and paged eligible lead selection preserve the pending selected account across pages.
+- Full95backend tests/92.22%coverage,57frontend tests/build and actual admin/Lead/public browser checks pass. Local schema0004 applied; original sample relationships retained. User controls commits/integration; branch unchanged.
+
+## Volunteer review and member register (24 October 2026)
+
+- User selected complete review over inbox-only and approved docs/superpowers/specs/2026-10-24-volunteer-review-design.md. Super Admin/HR manage applications and members globally; other staff roles have no private member access. Safe HR branch options do not change full branch-register permissions.
+- Reuse public volunteer submissions as Pending applications. Accepted/Declined are final and require a reason/revision/confirmation. Acceptance requires the original branch Active, regardless of publication. No silent reassignment, merge or automatic staff account.
+- Members have sequence-generated immutable MEM codes and one normalised email globally, including Inactive members. Atomic acceptance saves member/audits/decision together. Row locks and uniqueness handle simultaneous reviews; duplicate responses include the existing member code, including after a uniqueness conflict.
+- Team/organisational role are labels, separate from system permissions. Allow audited label/status edits; reactivation requires an Active branch. Identity/branch/source remain read-only; no transfer/delete action.
+- Keep90day application retention: history cascades on cleanup and member source becomesNULL; membership survives. Do not copy application messages/email/decision reasons into persistent creation events. Public bilingual consent explains membership retention separately. Broader member retention/erasure policy remains future work.
+- Keep burgundy staff identity and existing cookie/CSRF/Redis guard. Direct applications/members routes, role navigation and409 draft retention are implemented. Pending branch-filter label survives later-page selection and return from detail.
+- Verified114backend tests/92.90%coverage,68frontend tests/build, migration up/down/up/drift, independent transaction races and real-browser public→HR→member/decline/duplicate/role checks. Labelled synthetic applications remain reviewed and their member Inactive. No new Git branch, commit, push or translation integration.
