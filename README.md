@@ -4,7 +4,7 @@ A web platform connecting volunteer branches with head office, alongside the org
 
 ## Project status
 
-**Staff account and authentication foundation.** Super Admins can create staff accounts and issue temporary-password resets. Staff complete a mandatory first-login password change. Login uses PostgreSQL-backed HttpOnly sessions, bcrypt with legacy-hash migration, CSRF protection and shared Redis rate limits. Business workflows, branch-scoped permissions and deployment remain to be implemented. See [security and account operations](SECURITY.md).
+**Public pages and staff account foundation.** Anyone can open the English/Urdu public website at `/`, with separate About, Programs, Branches, Events, Get Involved and Contact pages; staff sign-in/workspace is at `/staff`. Super Admins can create staff accounts and issue temporary-password resets. Staff complete a mandatory first-login password change. Login uses PostgreSQL-backed HttpOnly sessions, bcrypt with legacy-hash migration, CSRF protection and shared Redis rate limits. Business workflows, branch-scoped permissions and deployment remain to be implemented. See [security and account operations](SECURITY.md).
 
 The authentication and staff account foundation is implemented; the business workflows and deployment are still planned. See [the development guide](docs/DEVELOPMENT.md) for local setup, CI checks and branch protection instructions.
 
@@ -37,6 +37,41 @@ FastAPI is the intended backend. The remaining application choices are the propo
 
 Backend runtime dependencies are pinned in `backend/requirements.txt`; `backend/requirements-dev.txt` adds development tools. Frontend dependencies are locked in `frontend/package-lock.json`. The UI uses plain CSS; Tailwind remains proposed. Translation and PDF libraries remain to be selected.
 
+## Public website
+
+Start the frontend from the repository root:
+
+```powershell
+Set-Location frontend
+npm ci
+npm run dev
+```
+
+Open `http://localhost:5173/`. Public browsing requires no sign-in. Start the backend, PostgreSQL and Redis using the setup below to load the catalogue and submit forms. The site shares responsive navigation, English/Urdu switching with RTL, saved language, reduced-motion support and staff-entry links. Direct navigation uses document URLs; production hosting must serve the frontend entry point for these routes.
+
+The public visual identity uses dark burgundy (`#500F1C`), light grey and white, with near-black body text. The deep-wine Home hero (`#300910`) pairs a large headline with a code-drawn network globe inspired by the supplied reference. The globe spins gently on its own, with a smoothed contribution from native page scrolling. A pause/resume control is available; motion stops offscreen, in hidden tabs and under reduced motion. Canvas has a static SVG fallback. Connections are illustrative, rather than real branch locations.
+
+“Make your time count” holds one panel in place and changes its heading/paragraph as visitors scroll forward or backward. Three labeled step buttons and previous/next controls allow direct or keyboard selection. The CTA and controls remain mounted while text changes. Reserved panel height prevents text replacement shifting the layout. Reduced motion and viewports too short for the stage use the same single panel with manual controls. Separate public routes and staff styling remain unchanged.
+
+The larger “Built around people” introduction includes both explanatory paragraphs in a padded reading card. The final section groups its introduction, Branches button and Get involved link, with consistent spacing through the footer. Compact story sizing keeps scrolling active on common shorter laptop viewports, including 1280×600 and 1366×650 in both languages.
+
+Public routes are `/`, `/about`, `/programs`, `/branches`, `/events`, `/get-involved` and `/contact`. About explains the network. Programs, searchable branches and filterable upcoming/past events load from PostgreSQL. Home previews the next two events. Event links reach the correct article after loading. Contact and volunteer-interest forms save private submissions, prevent duplicate retries and show a reference. Fields, validation, consent, loading/error/retry/success states and the catalogue support English/Urdu. The site remains photo-free at the user's request.
+
+After applying migrations, explicitly seed the fictional public catalogue in development:
+
+```powershell
+Set-Location backend
+..\.venv\Scripts\python.exe -m app.public_seed --demo
+```
+
+This creates three sample branches, three programs and six events with dates relative to the first seed. Re-running preserves existing content and edits; seeding is blocked in production. Every sample is marked as demo content. Replace it with official records before presenting the site as a real organisation. No automatic email is sent, and expressions of volunteer interest do not confirm a placement.
+
+Public API: `GET /api/public/catalog`, `POST /api/public/messages`, `POST /api/public/volunteers`. Submission endpoints use the existing anonymous CSRF session, allowed-origin checks, request-size bounds and Redis limits (five new submissions per IP per ten minutes). The caller supplies a UUID request reference; identical retries in the same session return the same receipt, and conflicting reuse returns 409. Public responses contain no private messages. `GET /api/staff/public-submissions?offset=0` requires staff authentication: Super Admin sees both kinds, HR Lead sees volunteer interests, and other roles are denied. This is an API inbox; a staff inbox screen and CMS editing remain separate work.
+
+Visitor names/emails/messages support the stated enquiry purpose and expire after 90 days. Schedule `python -m app.cleanup_public` daily in the deployment environment; it deletes expired submissions, and the staff API already excludes them. No IP address is stored with correspondence. Infrastructure backups need their own retention policy when hosting is configured.
+
+Verification for this iteration: 48 frontend tests and the TypeScript/Vite build pass; 67 PostgreSQL-backed backend tests pass with 90.60% coverage; Ruff lint/format and Alembic model-drift checks pass. The browser check covers 42 layouts (seven pages, two languages, three viewport sizes). Actual browser submissions saved Contact and volunteer records. Additional wheel-input checks cover eight English/Urdu short-screen layouts with stable paragraph heights and no backward jump. Story step buttons reposition directly, avoiding the earlier selected→first→selected flicker during smooth scrolling; the paragraph itself still animates. Reduced motion and short Urdu layouts retain manual selection. Earlier checks cover globe controls, Canvas/rAF fallback and public/staff separation. Lighthouse performance has not been measured.
+
 ## Run the staff portal
 
 Start Docker Desktop, then set up PostgreSQL and the backend from the repository root in one PowerShell terminal. Copy the example environment file only on first setup; keep an existing configuration. See [database setup and design](docs/DATABASE.md) for details.
@@ -60,7 +95,7 @@ npm ci
 npm run dev
 ```
 
-Open `http://localhost:5173`. Vite forwards `/api` requests to FastAPI on port 8000. The frontend requires Node 22.12+ (CI uses Node 24). The development proxy is not a production deployment configuration.
+Open `http://localhost:5173/staff` or use **Staff sign-in** on Home. Vite forwards `/api` requests to FastAPI on port 8000. The frontend requires Node 22.12+ (CI uses Node 24). The development proxy is not a production deployment configuration; production hosting must serve the frontend document for the `/staff` route.
 
 For local development only, explicitly seeded sample accounts use password `Demo123!` (existing passwords are never overwritten). Credential shortcuts are not shipped in the frontend:
 
@@ -187,6 +222,7 @@ Priority test areas will include cross-branch access, role permissions, applicat
 - [x] Add a minimal FastAPI foundation and GitHub Actions CI workflow.
 - [x] Add a basic demo login page, endpoint and frontend CI build.
 - [x] Add PostgreSQL account storage, Alembic migrations, password hashing and database integration tests.
+- [x] Add the public Home page with English/Urdu, responsive navigation and separate staff entry.
 - [ ] Publish branches, verify the first GitHub CI run and configure branch protection.
 - [ ] Finalise the permission matrix, reporting rules and database schema.
 - [x] Implement the initial authentication and staff account provisioning foundation (see [SECURITY.md](SECURITY.md)); full business permissions and audit coverage remain open.

@@ -19,3 +19,5 @@ frontend/dist/
 backend/pytest-cache-files-*/
 
 docs/
+
+references/

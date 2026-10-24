@@ -1,0 +1,70 @@
+.public-site { --home-section-space: 80px; --home-ease: cubic-bezier(.22, 1, .36, 1); }
+.home-desktop-nav a[aria-current="page"], .home-footer nav a[aria-current="page"] { color: var(--home-brand); text-decoration: underline; text-underline-offset: 6px; }
+.home-hero { padding-block: 56px; }
+.home-hero-sheet { padding: 0; display: grid; grid-template-columns: 1.2fr 1fr; gap: clamp(32px, 5vw, 80px); align-items: center; }
+.home-hero-copy { padding-block: 16px; }
+.home-hero h1 { font-size: clamp(44px, 5.1vw, 74px); }
+.home-hero-copy > p:first-of-type { max-width: 42ch; font-size: 18px; line-height: 1.75; margin-top: 24px; }
+.home-hero-actions { margin-top: 28px; gap: 24px; }
+.home-about, .home-next, .public-intro, .about-purpose, .about-approach, .public-detail { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(32px, 5vw, 80px); align-items: start; }
+.home-letter > p:first-child { margin-top: 0; }
+.home-letter .home-text-link { color: var(--home-brand); margin-top: 20px; }
+.story-step-dot { height: 6px; width: 6px; flex-shrink: 0; border-radius: 50%; background: currentColor; }
+.home-next { background: var(--home-brand); color: var(--home-on-brand); align-items: center; }
+.home-next .home-button { background: var(--home-hero-action); color: var(--home-brand) !important; margin-top: 24px; }
+.home-next .home-button:hover { background: var(--home-surface); }
+.home-next a:focus-visible { outline-color: var(--home-on-brand); }
+.home-footer h2 { font-size: 20px; line-height: 1.4; margin-bottom: 16px; }
+.public-intro { background: var(--home-hero-background); color: var(--home-on-brand); align-items: center; padding-block: 72px; }
+.public-site .public-intro h1 { color: inherit; max-width: 16ch; font-size: clamp(40px, 5.1vw, 74px); line-height: 1.12; }
+.public-intro p { font-size: 20px; line-height: 1.75; }
+.public-intro .home-text-link { margin-top: 20px; }
+.public-intro .home-text-link:hover { color: var(--home-hero-action); }
+.public-intro a:focus-visible { outline-color: var(--home-on-brand); }
+.about-purpose { background: var(--home-surface); }
+.about-closing { margin-top: 24px !important; color: var(--home-brand); font-size: 20px; }
+.about-role-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.about-role-list article { padding: 32px; background: var(--home-surface); border-radius: var(--home-radius); }
+.about-role-list article:nth-child(2) { background: var(--home-hero-action); }
+.about-role-list p { margin-top: 20px; }
+.about-approach { background: var(--home-surface); }
+.public-notice { margin-top: 24px; color: var(--home-secondary); font-size: 14px; }
+.about-approach .home-text-link, .public-detail .home-text-link { margin-top: 20px; color: var(--home-brand); }
+.public-detail { min-height: 340px; background: var(--home-surface); }
+.public-detail .public-notice:first-child { margin-top: 0; }
+.public-program-list { display: grid; gap: 24px; margin-top: 32px; }
+.public-program-list article { padding: 28px; background: var(--home-background); }
+.public-program-list p { margin-top: 12px; }
+.public-detail .home-reply { padding: 32px; }
+@keyframes office-title-enter { from { clip-path: inset(0 0 100% 0); transform: translateY(16px); } to { clip-path: inset(0); transform: translateY(0); } }
+@media (prefers-reduced-motion: no-preference) {
+  .home-hero h1.home-seen, .public-intro h1.home-seen { animation-name: office-title-enter; animation-duration: .85s; }
+}
+@media (max-width: 1190px) {
+  .home-header:has(.home-mobile-nav) { flex-wrap: wrap; }
+  .home-mobile-nav { position: static; flex: 1 0 100%; padding: 8px 0 24px; }
+}
+html[lang="ur"] .public-intro h1 { line-height: 1.5; }
+ html[lang="ur"] .public-notice { font-size: 18px; }
+@media (max-width: 1000px) {
+  .home-hero-sheet { grid-template-columns: 1fr 1fr; gap: 32px; }
+  .about-role-list { gap: 16px; }
+  .about-role-list article { padding: 24px; }
+  .home-hero-actions { align-items: start; flex-direction: column; gap: 16px; }
+}
+@media (max-width: 700px) {
+  .public-site { --home-section-space: 56px; }
+  .home-hero { padding-block: 32px; }
+  .home-hero-sheet, .home-about, .home-next, .public-intro, .about-purpose, .about-approach, .public-detail { grid-template-columns: 1fr; gap: 28px; }
+  .home-hero-sheet { padding: 0; }
+  .home-hero h1 { font-size: 42px; }
+  .about-role-list { grid-template-columns: 1fr; gap: 16px; }
+  .public-intro { padding-block: 48px; }
+  .public-intro p { font-size: 18px; }
+  .home-next { align-items: start; }
+  .public-detail { min-height: 0; }
+}
+
+@media (max-width: 360px) {
+  html[lang="en"] .public-intro h1 { font-size: 34px; }
+}

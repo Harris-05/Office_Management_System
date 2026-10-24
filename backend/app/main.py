@@ -15,6 +15,7 @@ from app.database import get_engine
 from app.dependencies import Principal, require_api_access
 from app.login import router as login_router
 from app.middleware import SecurityMiddleware
+from app.public import router as public_router
 from app.rate_limits import get_redis
 from app.staff import router as staff_router
 
@@ -49,6 +50,7 @@ def create_app() -> FastAPI:
     api = APIRouter(dependencies=[Depends(api_guard)])
     api.include_router(login_router)
     api.include_router(staff_router)
+    api.include_router(public_router)
     app.include_router(api)
     app.add_middleware(SecurityMiddleware)
     app.add_middleware(
