@@ -2,6 +2,7 @@ from alembic import context
 
 from app.database import Base, database_url, get_engine
 from app.models import User  # noqa: F401 -- register model metadata
+from app.public_models import Branch  # noqa: F401 -- register public metadata
 
 target_metadata = Base.metadata
 

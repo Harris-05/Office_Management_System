@@ -11,6 +11,11 @@ from app.models import AuthSession, User, UserRole
 from app.sessions import resolve_session, utc_now
 
 PUBLIC = {("GET", "/api/csrf"), ("POST", "/api/login")}
+PUBLIC_CONTENT = {
+    ("GET", "/api/public/catalog"),
+    ("POST", "/api/public/messages"),
+    ("POST", "/api/public/volunteers"),
+}
 CHANGE_ALLOWED = {"/api/me", "/api/change-password", "/api/logout", "/api/csrf"}
 
 
@@ -24,9 +29,11 @@ def require_api_access(request: Request, db: Annotated[Session, Depends(get_db)]
     if not (request.url.path == "/api" or request.url.path.startswith("/api/")):
         return Principal(None, None)
     settings = get_settings()
+    if (request.method, request.url.path) == ("GET", "/api/public/catalog"):
+        return Principal(None, None)
     row = resolve_session(db, request.cookies.get(settings.cookie_name), utc_now())
     user = db.get(User, row.user_id) if row and row.user_id else None
-    public = (request.method, request.url.path) in PUBLIC
+    public = (request.method, request.url.path) in PUBLIC | PUBLIC_CONTENT
     if not public and not user:
         raise HTTPException(401, "Authentication required.")
     if request.method not in {"GET", "HEAD", "OPTIONS"}:
@@ -38,7 +45,11 @@ def require_api_access(request: Request, db: Annotated[Session, Depends(get_db)]
             or not secrets.compare_digest(csrf.encode("utf-8"), row.csrf_token.encode("utf-8"))
         ):
             raise HTTPException(403, "Request verification failed. Refresh and try again.")
-    if user and user.must_change_password:
+    if (
+        user
+        and user.must_change_password
+        and (request.method, request.url.path) not in PUBLIC_CONTENT
+    ):
         if user.temporary_password_expires_at and user.temporary_password_expires_at <= utc_now():
             raise HTTPException(401, "Temporary password expired. Contact your administrator.")
         if request.url.path not in CHANGE_ALLOWED:
