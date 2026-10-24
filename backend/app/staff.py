@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from app.config import get_settings
 from app.dependencies import Principal, require_api_access, require_roles
@@ -83,7 +83,15 @@ def create_staff(data: CreateStaff, db: DB, admin: Admin):
 
 @router.post("/{user_id}/reset-password", status_code=204)
 def reset_password(user_id: uuid.UUID, data: ResetPassword, db: DB, admin: Admin):
-    user = db.scalar(select(User).where(User.id == user_id).with_for_update())
+    try:
+        # The guard already holds the actor's lock. Never wait on a second user's
+        # lock: opposing administrators could otherwise deadlock each other.
+        user = db.scalar(select(User).where(User.id == user_id).with_for_update(nowait=True))
+    except OperationalError as exc:
+        if getattr(exc.orig, "sqlstate", None) != "55P03":
+            raise
+        db.rollback()
+        raise HTTPException(409, "This account is being updated. Please try again.") from None
     if user is None:
         raise HTTPException(404, "Account not found.")
     if user.id == admin.user.id:

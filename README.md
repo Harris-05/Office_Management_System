@@ -6,7 +6,7 @@ A web platform connecting volunteer branches with head office, alongside the org
 
 **Public pages and staff account foundation.** Anyone can open the English/Urdu public website at `/`, with separate About, Programs, Branches, Events, Get Involved and Contact pages; staff sign-in/workspace is at `/staff`. Super Admins can create staff accounts and issue temporary-password resets. Staff complete a mandatory first-login password change. Login uses PostgreSQL-backed HttpOnly sessions, bcrypt with legacy-hash migration, CSRF protection and shared Redis rate limits. Business workflows, branch-scoped permissions and deployment remain to be implemented. See [security and account operations](SECURITY.md).
 
-The authentication and staff account foundation is implemented; the business workflows and deployment are still planned. See [the development guide](docs/DEVELOPMENT.md) for local setup, CI checks and branch protection instructions.
+Authentication, staff accounts, the public website and branch management are implemented. Volunteer approval, finance/reporting workflows and deployment remain planned. See [the development guide](docs/DEVELOPMENT.md) for local setup and CI, and [branch permissions/API](docs/BRANCHES.md) for the register.
 
 ## The problem
 
@@ -110,6 +110,14 @@ For local development only, explicitly seeded sample accounts use password `Demo
 Sign in as the sample Super Admin and select **Manage staff accounts**. Enter a staff member's name, existing email, assigned role and temporary password, then share the credentials directly. The user signs in and sets a personal password before accessing their workspace. Temporary credentials expire in 48 hours; administrators can reset them from the staff list. No public signup, email-mailbox creation or email delivery is included.
 
 Login survives refresh via a server-side session and logout revokes it. Sessions expire after 30 minutes idle or 8 hours total. New passwords require at least 15 characters and at most 72 UTF-8 bytes. On a fresh non-demo installation, create the first Super Admin with `python -m app.bootstrap` from backend; it prompts for credentials without exposing a password in command arguments. Demo seeding is refused in production. See [SECURITY.md](SECURITY.md) for endpoint contracts, deployment settings and current limitations.
+
+## Branch management
+
+Open `/staff/branches` or choose **Manage branches** as Super Admin. Create/edit bilingual branch profiles, assign an active Branch Lead, manage Forming → Active ↔ Paused → Closed, and publish Active branches. Codes such as `BR-000001` are generated automatically. Pausing or closing unpublishes the branch; reactivation requires explicit republishing. Closing archives the record and releases its lead. Each lead can be assigned to one branch and has a read-only view of that branch and its audit history. There is no delete/reopen action.
+
+Changes and audit entries save atomically. Revision conflicts preserve your draft and offer an explicit reload. The public branch/event listings and volunteer-interest choices follow the same Active/publication rules. See [complete branch contracts and permission matrix](docs/BRANCHES.md).
+
+Latest branch verification: **95 backend tests**, **92.22% coverage**, **57 frontend tests**, production build, migration round-trip/model-drift, Ruff checks and actual admin/Lead browser flows pass. Synthetic browser-test branches were archived; the existing public samples were preserved.
 
 ## Planned architecture
 
@@ -226,11 +234,13 @@ Priority test areas will include cross-branch access, role permissions, applicat
 - [ ] Publish branches, verify the first GitHub CI run and configure branch protection.
 - [ ] Finalise the permission matrix, reporting rules and database schema.
 - [x] Implement the initial authentication and staff account provisioning foundation (see [SECURITY.md](SECURITY.md)); full business permissions and audit coverage remain open.
-- [ ] Implement branch management and organisation-wide auditing.
+- [x] Implement branch management with scoped permissions and branch audit history.
+- [ ] Extend auditing across the remaining organisation workflows.
 - [ ] Implement applications and member management.
 - [ ] Implement collections, transfer tracking and weekly report review.
 - [ ] Implement dashboard calculations and CSV/PDF exports.
-- [ ] Build public pages, content management and English/Urdu support.
+- [x] Build public pages with English/Urdu support.
+- [ ] Add staff content management.
 - [ ] Complete security checks, automated tests and coverage requirements.
 - [ ] Add Docker packaging, health checks and Render deployment.
 - [ ] Verify sample-data acceptance checks and complete submission materials.

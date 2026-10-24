@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -23,6 +23,13 @@ class LoginRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     email: str = Field(min_length=3, max_length=254)
     password: str = Field(min_length=1, max_length=128)
+
+    @field_validator("email", "password")
+    @classmethod
+    def reject_nul(cls, value):
+        if "\x00" in value:
+            raise ValueError("Invalid credentials format.")
+        return value
 
 
 class ChangePassword(BaseModel):

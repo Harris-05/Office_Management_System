@@ -29,6 +29,11 @@ test('direct staff path preserves the staff portal', () => {
   expect(screen.getByRole('heading', { name: 'Staff portal' })).toBeInTheDocument();
 });
 
+test('direct branch management path opens the authenticated staff application', () => {
+  render(<Site path="/staff/branches" />);
+  expect(screen.getByRole('heading', { name: 'Staff portal' })).toBeInTheDocument();
+});
+
 test('participation shows one panel and changes through accessible step controls', async () => {
   const user = userEvent.setup();
   render(<Site path="/" />);

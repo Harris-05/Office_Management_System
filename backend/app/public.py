@@ -67,7 +67,10 @@ class Catalogue(BaseModel):
 def catalogue(db: DB):
     return {
         "branches": db.scalars(
-            select(Branch).where(Branch.is_published).order_by(Branch.city, Branch.id).limit(100)
+            select(Branch)
+            .where(Branch.is_published, Branch.status == "Active")
+            .order_by(Branch.city, Branch.id)
+            .limit(100)
         ).all(),
         "programs": db.scalars(
             select(Program)
@@ -78,7 +81,7 @@ def catalogue(db: DB):
         "events": db.scalars(
             select(PublicEvent)
             .join(Branch)
-            .where(PublicEvent.is_published, Branch.is_published)
+            .where(PublicEvent.is_published, Branch.is_published, Branch.status == "Active")
             .order_by(PublicEvent.starts_at.desc(), PublicEvent.id)
             .limit(200)
         ).all(),
@@ -124,7 +127,9 @@ def save_submission(
     if kind == "volunteer" and body.branch_id is None:
         raise HTTPException(422, "Choose a published branch.")
     if body.branch_id is not None and not db.scalar(
-        select(Branch.id).where(Branch.id == body.branch_id, Branch.is_published)
+        select(Branch.id).where(
+            Branch.id == body.branch_id, Branch.is_published, Branch.status == "Active"
+        )
     ):
         raise HTTPException(422, "Choose a published branch.")
     ip = request.client.host if request.client else "unknown"

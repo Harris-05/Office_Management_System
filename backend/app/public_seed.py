@@ -180,6 +180,7 @@ def seed_public_content(session: Session) -> int:
             add(
                 Branch,
                 slug + "-demo",
+                status="Active",
                 name=f"{city} branch",
                 name_ur=f"{city_ur} شاخ",
                 city=city,

@@ -200,3 +200,17 @@ The previously approved security and staff provisioning design has now been impl
 - Real mobile Chrome can report fractional CSS stage heights while innerHeight is integral. Allow1CSSpixel rounding tolerance when deciding if the story fits, preventing sticky/natural height feedback and document jumps. Keep readable oversized-stage fallback; do not intercept wheel/touch.
 - Home stacks at900px to avoid compressed portrait tablet columns. Use consistent20–32px side gutters; compact the header below380px so menu/language controls keep the right gutter. Responsive overrides are scoped to Home.
 - Exact375x667 wheel reproduction recorded192pinning changes before and0after; failing regression now passes. Twelve bilingual phone/tablet viewport checks and48frontend tests/build pass.
+
+## Staff login visual consistency (24 October 2026)
+
+- Apply the approved public burgundy theme to the staff entry and shared staff controls. Scope new styles beneath staff-shell to prevent changing public pages. Preserve existing authentication/session and form behavior.
+- Keep a split brand/form layout on desktop, stack below760px, use16px labels/inputs and min54px input/56px submit heights. Make public Home reachable from the logo and a labelled backlink. Success/error states keep semantic colour and text, with visible focus.
+
+## Branch management approval and implementation (24 October 2026)
+
+- User approved docs/superpowers/specs/2026-10-24-branch-management-design.md. Extend existing branch records; generated immutable BR codes, Forming/Active/Paused/Closed, one lead/branch and one branch/lead, SA registry management and assigned-only Lead reads. Other internal roles denied in this module.
+- Only published Active branches appear publicly or accept new volunteer interests. Pause/close unpublish; reactivation remains draft. Close is terminal, retains audit and releases assignment. No deletion or silent transfer.
+- Use PostgreSQL sequence allocation, row locks plus expected revision, uniqueness constraints and atomic BranchAudit snapshots. Failed/conflicting writes retain drafts. POST commands match current CSRF/CORS conventions. Search/control input is bounded and validated before SQL.
+- Resolve prior narrow auth findings: generation guards prevent late password callbacks restoring logged-out UI; malformed NUL login is422; reset target NOWAIT lock returns controlled409 rather than entering opposing actor/target waits. Existing wrong JSON shapes already validated correctly.
+- Keep direct /staff/branches authenticated entry and browser navigation. Staff uses English controls, bilingual content/RTL Urdu fields, and the burgundy theme. Scoped list/detail/form/audit screens and paged eligible lead selection preserve the pending selected account across pages.
+- Full95backend tests/92.22%coverage,57frontend tests/build and actual admin/Lead/public browser checks pass. Local schema0004 applied; original sample relationships retained. User controls commits/integration; branch unchanged.
