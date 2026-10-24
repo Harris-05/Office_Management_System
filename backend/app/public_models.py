@@ -101,6 +101,16 @@ class PublicSubmission(Base):
     __tablename__ = "public_submissions"
     __table_args__ = (
         CheckConstraint("kind IN ('contact', 'volunteer')", name="ck_submission_kind"),
+        CheckConstraint(
+            "(kind = 'contact' AND review_status IS NULL AND review_version IS NULL "
+            "AND reviewed_at IS NULL AND reviewer_id IS NULL AND review_reason IS NULL) OR "
+            "(kind = 'volunteer' AND review_status IS NOT NULL AND review_version IS NOT NULL "
+            "AND review_version > 0 AND ((review_status = 'Pending' AND reviewed_at IS NULL "
+            "AND reviewer_id IS NULL AND review_reason IS NULL) OR "
+            "(review_status IN ('Accepted','Declined') AND reviewed_at IS NOT NULL "
+            "AND review_reason IS NOT NULL)))",
+            name="ck_submission_review",
+        ),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     request_id: Mapped[uuid.UUID] = mapped_column(unique=True)
@@ -115,3 +125,19 @@ class PublicSubmission(Base):
     branch_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("public_branches.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    review_status: Mapped[str | None] = mapped_column(
+        String(10),
+        index=True,
+        default=lambda ctx: (
+            "Pending" if ctx.get_current_parameters().get("kind") == "volunteer" else None
+        ),
+    )
+    review_version: Mapped[int | None] = mapped_column(
+        Integer,
+        default=lambda ctx: 1 if ctx.get_current_parameters().get("kind") == "volunteer" else None,
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reviewer_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL")
+    )
+    review_reason: Mapped[str | None] = mapped_column(String(500))

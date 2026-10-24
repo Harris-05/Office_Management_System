@@ -4,9 +4,9 @@ A web platform connecting volunteer branches with head office, alongside the org
 
 ## Project status
 
-**Public pages and staff account foundation.** Anyone can open the English/Urdu public website at `/`, with separate About, Programs, Branches, Events, Get Involved and Contact pages; staff sign-in/workspace is at `/staff`. Super Admins can create staff accounts and issue temporary-password resets. Staff complete a mandatory first-login password change. Login uses PostgreSQL-backed HttpOnly sessions, bcrypt with legacy-hash migration, CSRF protection and shared Redis rate limits. Business workflows, branch-scoped permissions and deployment remain to be implemented. See [security and account operations](SECURITY.md).
+**Public website and staff workflows.** Anyone can open the English/Urdu public website at `/`, with separate About, Programs, Branches, Events, Get Involved and Contact pages; staff sign-in/workspace is at `/staff`. Super Admins manage staff accounts and branches. HR Leads and Super Admins review volunteer applications and manage accepted members. Staff complete a mandatory first-login password change. Login uses PostgreSQL-backed HttpOnly sessions, bcrypt with legacy-hash migration, CSRF protection and shared Redis rate limits. Finance/reporting, CMS and deployment remain planned. See [security and account operations](SECURITY.md).
 
-Authentication, staff accounts, the public website and branch management are implemented. Volunteer approval, finance/reporting workflows and deployment remain planned. See [the development guide](docs/DEVELOPMENT.md) for local setup and CI, and [branch permissions/API](docs/BRANCHES.md) for the register.
+Authentication, staff accounts, the public website, branch management and volunteer review/member registration are implemented. See [the development guide](docs/DEVELOPMENT.md) for local setup and CI, [branch permissions/API](docs/BRANCHES.md) and [application/member operations](docs/MEMBERSHIP.md).
 
 ## The problem
 
@@ -66,7 +66,7 @@ Set-Location backend
 
 This creates three sample branches, three programs and six events with dates relative to the first seed. Re-running preserves existing content and edits; seeding is blocked in production. Every sample is marked as demo content. Replace it with official records before presenting the site as a real organisation. No automatic email is sent, and expressions of volunteer interest do not confirm a placement.
 
-Public API: `GET /api/public/catalog`, `POST /api/public/messages`, `POST /api/public/volunteers`. Submission endpoints use the existing anonymous CSRF session, allowed-origin checks, request-size bounds and Redis limits (five new submissions per IP per ten minutes). The caller supplies a UUID request reference; identical retries in the same session return the same receipt, and conflicting reuse returns 409. Public responses contain no private messages. `GET /api/staff/public-submissions?offset=0` requires staff authentication: Super Admin sees both kinds, HR Lead sees volunteer interests, and other roles are denied. This is an API inbox; a staff inbox screen and CMS editing remain separate work.
+Public API: `GET /api/public/catalog`, `POST /api/public/messages`, `POST /api/public/volunteers`. Submission endpoints use the existing anonymous CSRF session, allowed-origin checks, request-size bounds and Redis limits (five new submissions per IP per ten minutes). The caller supplies a UUID request reference; identical retries in the same session return the same receipt, and conflicting reuse returns 409. Public responses contain no private messages. `GET /api/staff/public-submissions?offset=0` requires staff authentication: Super Admin sees both kinds, HR Lead sees volunteer interests, and other roles are denied. Volunteer review now has a staff screen at /staff/applications; a contact-message screen and CMS editing remain separate work.
 
 Visitor names/emails/messages support the stated enquiry purpose and expire after 90 days. Schedule `python -m app.cleanup_public` daily in the deployment environment; it deletes expired submissions, and the staff API already excludes them. No IP address is stored with correspondence. Infrastructure backups need their own retention policy when hosting is configured.
 
@@ -118,6 +118,14 @@ Open `/staff/branches` or choose **Manage branches** as Super Admin. Create/edit
 Changes and audit entries save atomically. Revision conflicts preserve your draft and offer an explicit reload. The public branch/event listings and volunteer-interest choices follow the same Active/publication rules. See [complete branch contracts and permission matrix](docs/BRANCHES.md).
 
 Latest branch verification: **95 backend tests**, **92.22% coverage**, **57 frontend tests**, production build, migration round-trip/model-drift, Ruff checks and actual admin/Lead browser flows pass. Synthetic browser-test branches were archived; the existing public samples were preserved.
+
+## Volunteer review and members
+
+Sign in as **HR Lead** (`hr@example.test`, seeded local password `Demo123!`) or **Super Admin**, then open `/staff/applications`. Search/filter Pending, Accepted or Declined applications. Open an application, choose Accept or Decline, supply a reason and confirm. Acceptance requires an Active branch and creates one member with a generated `MEM-000001` code; duplicate emails are prevented across the organisation. Decisions are final in this version.
+
+Use `/staff/members` to search by name, email or member code and filter by branch/status/team/organisational role. Update team, role and Active/Inactive status with an audited reason. Membership does not provide a login account. Application messages/review details expire after90days; accepted member records remain separately, as explained in the public form. See [permissions, contracts and retention](docs/MEMBERSHIP.md).
+
+Latest verification: **114 backend tests**, **92.90% coverage**, **68 frontend tests**, production build, Ruff, migration round-trip/drift and real browser workflows pass.
 
 ## Planned architecture
 
@@ -236,7 +244,7 @@ Priority test areas will include cross-branch access, role permissions, applicat
 - [x] Implement the initial authentication and staff account provisioning foundation (see [SECURITY.md](SECURITY.md)); full business permissions and audit coverage remain open.
 - [x] Implement branch management with scoped permissions and branch audit history.
 - [ ] Extend auditing across the remaining organisation workflows.
-- [ ] Implement applications and member management.
+- [x] Implement applications and member management, including HR decisions and generated member IDs.
 - [ ] Implement collections, transfer tracking and weekly report review.
 - [ ] Implement dashboard calculations and CSV/PDF exports.
 - [x] Build public pages with English/Urdu support.

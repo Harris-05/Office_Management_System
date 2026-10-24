@@ -1,11 +1,12 @@
 import hashlib
 import json
+import unicodedata
 import uuid
 from datetime import datetime, timedelta
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
@@ -97,6 +98,16 @@ class SubmissionInput(BaseModel):
     message: str = Field(min_length=10, max_length=4000)
     consent: Literal[True]
     branch_id: uuid.UUID | None = None
+
+    @field_validator("name", "email", "subject", "message")
+    @classmethod
+    def safe_text(cls, value: str, info: ValidationInfo) -> str:
+        for char in value:
+            if info.field_name == "message" and char in "\n\r\t":
+                continue
+            if unicodedata.category(char) in {"Cc", "Cs"}:
+                raise ValueError("Control characters are not allowed.")
+        return value
 
 
 class Receipt(BaseModel):

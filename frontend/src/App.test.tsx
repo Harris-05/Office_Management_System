@@ -11,6 +11,17 @@ const admin = { id: 'one', name: 'Staff Admin', email: 'admin@example.test', rol
 beforeEach(() => { history.replaceState(null, '', '/staff'); vi.clearAllMocks(); vi.mocked(api).mockResolvedValue([]); });
 afterEach(cleanup);
 
+test.each([['applications','Volunteer applications'],['members','Member register']] as const)('HR can open the direct %s route and return through browser navigation', async (page, heading) => {
+  history.replaceState(null,'',`/staff/${page}`);
+  vi.mocked(restore).mockResolvedValue({...admin,role:'HR Lead'});
+  vi.mocked(api).mockResolvedValue({items:[],total:0,offset:0,limit:25});
+  render(<App initialPage={page}/>);
+  expect(await screen.findByRole('heading',{name:heading})).toBeVisible();
+  expect(screen.queryByRole('button',{name:'Staff accounts'})).not.toBeInTheDocument();
+  act(() => {history.replaceState(null,'','/staff');window.dispatchEvent(new PopStateEvent('popstate'));});
+  expect(await screen.findByRole('heading',{name:'Your workspace'})).toBeVisible();
+});
+
 test('branch management has a direct URL and browser navigation returns to workspace', async () => {
   vi.mocked(restore).mockResolvedValue(admin);
   vi.mocked(api).mockResolvedValue({items:[],total:0,offset:0,limit:25});

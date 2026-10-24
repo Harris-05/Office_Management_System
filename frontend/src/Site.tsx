@@ -4,7 +4,8 @@ import PublicSite from './public/PublicSite';
 import { publicPageForPath } from './public/routes';
 
 export default function Site({ path = window.location.pathname }: { path?: string }) {
-  const staff = ['/staff','/staff/','/staff/branches','/staff/branches/'].includes(path);
+  const staffPage = path.replace(/\/$/,'').split('/')[2];
+  const staff = ['/staff','/staff/','/staff/branches','/staff/branches/','/staff/applications','/staff/applications/','/staff/members','/staff/members/'].includes(path);
   const page = publicPageForPath(path);
   useEffect(() => {
     if (page) return;
@@ -15,7 +16,7 @@ export default function Site({ path = window.location.pathname }: { path?: strin
   }, [path, staff, page]);
 
   if (page) return <PublicSite page={page} />;
-  if (staff) return <App initialPage={path.startsWith('/staff/branches')?'branches':'home'} />;
+  if (staff) return <App initialPage={staffPage === 'branches' || staffPage === 'applications' || staffPage === 'members' ? staffPage : 'home'} />;
   return <main className="public-site public-not-found">
     <h1>Page not found</h1>
     <p>This page isn’t available. You can return to the public website or open the staff portal.</p>

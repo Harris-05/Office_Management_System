@@ -8,8 +8,8 @@ export function Feedback({ error, success }: { error?: string; success?: string 
   return null;
 }
 
-export function Submit({ busy, idle, pending }: { busy: boolean; idle: string; pending: string }) {
-  return <button type="submit" className={`primary${busy ? ' is-loading' : ''}`} disabled={busy} aria-busy={busy}>
+export function Submit({ busy, idle, pending, disabled = false }: { busy: boolean; idle: string; pending: string; disabled?: boolean }) {
+  return <button type="submit" className={`primary${busy ? ' is-loading' : ''}`} disabled={busy || disabled} aria-busy={busy}>
     {busy && <span className="spinner" aria-hidden="true" />}{busy ? pending : idle}
   </button>;
 }
