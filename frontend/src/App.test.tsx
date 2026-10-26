@@ -11,6 +11,16 @@ const admin = { id: 'one', name: 'Staff Admin', email: 'admin@example.test', rol
 beforeEach(() => { history.replaceState(null, '', '/staff'); vi.clearAllMocks(); vi.mocked(api).mockResolvedValue([]); });
 afterEach(cleanup);
 
+test('finance opens collections directly and browser navigation returns to workspace', async () => {
+  history.replaceState(null,'','/staff/collections');
+  vi.mocked(restore).mockResolvedValue({...admin,role:'Finance Reviewer'});
+  vi.mocked(api).mockResolvedValue({items:[],total:0,offset:0,limit:25,total_amount:'0.00',currency:'PKR',server_time:'2026-10-24T10:00:00Z'});
+  render(<App initialPage="collections"/>);
+  expect(await screen.findByRole('heading',{name:'Offline collections'})).toBeVisible();
+  act(()=>{history.replaceState(null,'','/staff');window.dispatchEvent(new PopStateEvent('popstate'));});
+  expect(await screen.findByRole('heading',{name:'Your workspace'})).toBeVisible();
+});
+
 test.each([['applications','Volunteer applications'],['members','Member register']] as const)('HR can open the direct %s route and return through browser navigation', async (page, heading) => {
   history.replaceState(null,'',`/staff/${page}`);
   vi.mocked(restore).mockResolvedValue({...admin,role:'HR Lead'});

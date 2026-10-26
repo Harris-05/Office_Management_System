@@ -23,10 +23,10 @@ export function Pagination({offset,total,limit=25,onChange}: {offset:number;tota
   return <div className="hr-pagination"><button className="secondary" disabled={!offset} onClick={() => onChange(Math.max(0,offset-limit))}>Previous</button><span>{total ? `${offset+1}–${Math.min(offset+limit,total)} of ${total}` : '0 results'}</span><button className="secondary" disabled={offset+limit>=total} onClick={() => onChange(offset+limit)}>Next</button></div>;
 }
 
-export function BranchFilter({value,label,onChange}: {value:string;label:string;onChange:(value:string,label:string)=>void}) {
+export function BranchFilter({value,label,onChange,endpoint='/api/hr/branches'}: {value:string;label:string;onChange:(value:string,label:string)=>void;endpoint?:string}) {
   const [offset,setOffset] = useState(0);
   const [options,setOptions] = useState<BranchOption[]>([]);
-  const query = useResource<Page<BranchOption>>(`/api/hr/branches?offset=${offset}&limit=25`);
+  const query = useResource<Page<BranchOption>>(`${endpoint}?offset=${offset}&limit=25`);
   useEffect(() => {
     if (query.data) setOptions(previous => [...new Map([...previous,...query.data!.items].map(item => [item.id,item])).values()]);
   },[query.data]);

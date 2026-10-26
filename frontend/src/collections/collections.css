@@ -1,0 +1,21 @@
+.collection-heading,.collection-profile-heading { display: flex; align-items: start; justify-content: space-between; gap: 24px; }
+.collection-heading>.primary { width: auto; min-width: 158px; margin: 0; }
+.collection-profile-heading { margin-bottom: 28px; align-items: center; }
+.collection-profile-heading h2 { font-size: clamp(23px,2.4vw,30px); margin: 0; font-variant-numeric: tabular-nums; }
+.collection-profile-heading .secondary { margin: 0; flex-shrink: 0; background: white; }
+.collection-total { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin: 32px 0 24px; }
+.collection-total span,.collection-total p { font-size: 14px; color: var(--staff-muted); }
+.collection-total strong { display: block; font-size: clamp(24px,2.4vw,32px); line-height: 1.35; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 4px; overflow-wrap: anywhere; }
+.collection-total p { margin: 8px 0 0; }
+.collection-lock-help { color: var(--staff-brand); font-size: 14px; line-height: 1.7; margin-top: 24px; }
+.collection-form { margin-top: 28px; }
+.collection-form .collection-wide { grid-column: 1/-1; }
+.collection-form textarea { margin-bottom: 20px; }
+.collection-form>.secondary { margin-top: 16px; }
+.collection-form .hr-edit-grid label { margin-bottom: 8px; }
+.collection-record h2 { font-variant-numeric: tabular-nums; }
+@media(max-width:700px) {
+ .collection-heading,.collection-profile-heading,.collection-total { flex-direction: column; align-items: stretch; }
+ .collection-heading>.primary { width: 100%; }
+ .collection-profile-heading h2 { font-size: 24px; }
+}

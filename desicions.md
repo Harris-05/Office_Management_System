@@ -224,3 +224,19 @@ The previously approved security and staff provisioning design has now been impl
 - Keep90day application retention: history cascades on cleanup and member source becomesNULL; membership survives. Do not copy application messages/email/decision reasons into persistent creation events. Public bilingual consent explains membership retention separately. Broader member retention/erasure policy remains future work.
 - Keep burgundy staff identity and existing cookie/CSRF/Redis guard. Direct applications/members routes, role navigation and409 draft retention are implemented. Pending branch-filter label survives later-page selection and return from detail.
 - Verified114backend tests/92.90%coverage,68frontend tests/build, migration up/down/up/drift, independent transaction races and real-browser public→HR→member/decline/duplicate/role checks. Labelled synthetic applications remain reviewed and their member Inactive. No new Git branch, commit, push or translation integration.
+
+## Offline collection editing window (24 October 2026)
+
+- User confirmed that the seven-day editing window starts when the collection entry is created in the system, rather than on the date the money was collected.
+- Use the immutable, server-generated creation timestamp: `locks_at = created_at + 7 days` (168 hours). The entry becomes read-only when server time reaches that deadline; enforce this in the API, not only in the interface.
+- Keep the collection date as a separate business field. Editing it or any other field does not reset or extend the original editing window. Store timestamps in UTC and display the deadline in the interface.
+- This decision fixes the lock reference time; collection fields, correction handling after locking, transfers and reporting rules remain to be specified.
+
+## Offline collection implementation (24 October 2026)
+
+- User requested building immediately after the lock decision. Proceeded with announced PKR/two-decimal defaults and the proposed role scope: Branch Lead writes their currently assigned Active branch; Super Admin/Finance inspect globally read-only; HR/Content Editor denied. No admin override, deletion or post-lock correction action.
+- Individual collection entries retain generated immutable COL codes, actual collection date, collector name and optional notes. Daily/weekly totals derive from these entries. Collector is an operational label, with no new access to private HR member records or donor contact data.
+- Amounts use Numeric(12,2), strict positive decimal-string API and exact decimal-string UI totals. Do not round overprecision or use binary floats for money. The display total covers all filtered entries across pagination.
+- Creation derives branch from the authenticated assignment; expected_branch_id only checks the form's original context. Reject mismatch409 so a reassignment cannot silently move a pending entry into a different branch. Versioned edits and creator/request UUID idempotency preserve identity, deadline and audit history.
+- Lock branch then entry, refresh after waits, and check the server clock again before changing anything. Seven days is168hours from immutable created_at. No scheduler or client-clock authority is required; interface timer follows server-relative time.
+- New migration0006 preserves existing records. Dedicated_test downgrade0005/re-upgrade/drift and local development upgrade/drift pass. Full140backend tests/93.96%coverage,76frontend tests/build and Ruff checks pass. Joined list summaries avoid per-entry branch/creator database lookups. Transfers/report review remain separate next work.

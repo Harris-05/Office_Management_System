@@ -6,7 +6,7 @@ A web platform connecting volunteer branches with head office, alongside the org
 
 **Public website and staff workflows.** Anyone can open the English/Urdu public website at `/`, with separate About, Programs, Branches, Events, Get Involved and Contact pages; staff sign-in/workspace is at `/staff`. Super Admins manage staff accounts and branches. HR Leads and Super Admins review volunteer applications and manage accepted members. Staff complete a mandatory first-login password change. Login uses PostgreSQL-backed HttpOnly sessions, bcrypt with legacy-hash migration, CSRF protection and shared Redis rate limits. Finance/reporting, CMS and deployment remain planned. See [security and account operations](SECURITY.md).
 
-Authentication, staff accounts, the public website, branch management and volunteer review/member registration are implemented. See [the development guide](docs/DEVELOPMENT.md) for local setup and CI, [branch permissions/API](docs/BRANCHES.md) and [application/member operations](docs/MEMBERSHIP.md).
+Authentication, staff accounts, the public website, branch management, volunteer review/member registration and offline collections are implemented. See [the development guide](docs/DEVELOPMENT.md), [branch permissions/API](docs/BRANCHES.md), [application/member operations](docs/MEMBERSHIP.md) and [collection operations](docs/COLLECTIONS.md).
 
 ## The problem
 
@@ -127,6 +127,14 @@ Use `/staff/members` to search by name, email or member code and filter by branc
 
 Latest verification: **114 backend tests**, **92.90% coverage**, **68 frontend tests**, production build, Ruff, migration round-trip/drift and real browser workflows pass.
 
+## Offline collections
+
+Open `/staff/collections`. A **Branch Lead** assigned to an **Active branch** can record PKR amounts, collection date, collector and notes. Codes such as `COL-000001` are generated automatically. Entries lock **seven days after creation**, regardless of collection date; edits never extend the deadline. Every change is audited and requires the current revision. Repeated create requests are protected against duplicate receipts.
+
+**Super Admin and Finance Reviewer have read-only access** across branches. HR/Content Editor cannot access collections. Search and date/branch/window filters show an exact total across all matching entries, with pagination. See [collection permissions, contracts and locking](docs/COLLECTIONS.md). Transfers and weekly reporting remain next.
+
+Collection verification: **140 backend tests**, **93.96% coverage**, **76 frontend tests**, production build, Ruff checks and migration round-trip/model-drift pass.
+
 ## Planned architecture
 
 Use one repository containing a React frontend and a modular FastAPI backend, connected to one PostgreSQL database. Backend modules will separate authentication, branches, applications, members, collections, reports, content and auditing.
@@ -245,7 +253,8 @@ Priority test areas will include cross-branch access, role permissions, applicat
 - [x] Implement branch management with scoped permissions and branch audit history.
 - [ ] Extend auditing across the remaining organisation workflows.
 - [x] Implement applications and member management, including HR decisions and generated member IDs.
-- [ ] Implement collections, transfer tracking and weekly report review.
+- [x] Implement offline collections with exact PKR amounts, branch scope and creation-based seven-day locks.
+- [ ] Implement transfer tracking and weekly report review.
 - [ ] Implement dashboard calculations and CSV/PDF exports.
 - [x] Build public pages with English/Urdu support.
 - [ ] Add staff content management.

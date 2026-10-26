@@ -1,5 +1,6 @@
 from alembic import context
 
+from app.collection_models import Collection  # noqa: F401 -- register collection metadata
 from app.database import Base, database_url, get_engine
 from app.membership_models import Member  # noqa: F401 -- register membership metadata
 from app.models import User  # noqa: F401 -- register model metadata
