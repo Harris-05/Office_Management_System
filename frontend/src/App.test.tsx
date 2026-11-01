@@ -11,6 +11,19 @@ const admin = { id: 'one', name: 'Staff Admin', email: 'admin@example.test', rol
 beforeEach(() => { history.replaceState(null, '', '/staff'); vi.clearAllMocks(); vi.mocked(api).mockResolvedValue([]); });
 afterEach(cleanup);
 
+test('finance restores the direct transfers route and browser back returns to workspace', async () => {
+  history.replaceState(null,'','/staff/transfers');
+  vi.mocked(restore).mockResolvedValue({...admin,role:'Finance Reviewer'});
+  vi.mocked(api).mockImplementation(async path => path.includes('/balances')
+    ? {recorded:'0.00',not_submitted:'0.00',eligible:'0.00',awaiting_confirmation:'0.00',confirmed_received:'0.00',currency:'PKR'}
+    : {items:[],total:0,offset:0,limit:25});
+  render(<App initialPage="transfers"/>);
+  expect(await screen.findByRole('heading',{name:'Transfers to head office'})).toBeVisible();
+  expect(screen.getByRole('button',{name:'Transfers'})).toHaveAttribute('aria-current','page');
+  act(()=>{history.replaceState(null,'','/staff');window.dispatchEvent(new PopStateEvent('popstate'));});
+  expect(await screen.findByRole('heading',{name:'Your workspace'})).toBeVisible();
+});
+
 test('finance opens collections directly and browser navigation returns to workspace', async () => {
   history.replaceState(null,'','/staff/collections');
   vi.mocked(restore).mockResolvedValue({...admin,role:'Finance Reviewer'});

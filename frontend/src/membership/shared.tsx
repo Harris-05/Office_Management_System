@@ -15,12 +15,12 @@ export function AccessDenied() {
 
 export function LoadState({loading,error,retry,children}: {loading:boolean;error:string;retry:()=>void;children:ReactNode}) {
   if (loading) return <p role="status">Loading records…</p>;
-  if (error) return <><Feedback error={error}/><button className="secondary" onClick={retry}>Try again</button></>;
+  if (error) return <><Feedback error={error}/><button type="button" className="secondary" onClick={retry}>Try again</button></>;
   return <>{children}</>;
 }
 
 export function Pagination({offset,total,limit=25,onChange}: {offset:number;total:number;limit?:number;onChange:(value:number)=>void}) {
-  return <div className="hr-pagination"><button className="secondary" disabled={!offset} onClick={() => onChange(Math.max(0,offset-limit))}>Previous</button><span>{total ? `${offset+1}–${Math.min(offset+limit,total)} of ${total}` : '0 results'}</span><button className="secondary" disabled={offset+limit>=total} onClick={() => onChange(offset+limit)}>Next</button></div>;
+  return <div className="hr-pagination"><button type="button" className="secondary" disabled={!offset} onClick={() => onChange(Math.max(0,offset-limit))}>Previous</button><span>{total ? `${offset+1}–${Math.min(offset+limit,total)} of ${total}` : '0 results'}</span><button type="button" className="secondary" disabled={offset+limit>=total} onClick={() => onChange(offset+limit)}>Next</button></div>;
 }
 
 export function BranchFilter({value,label,onChange,endpoint='/api/hr/branches'}: {value:string;label:string;onChange:(value:string,label:string)=>void;endpoint?:string}) {

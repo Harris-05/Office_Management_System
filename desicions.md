@@ -1,6 +1,6 @@
 # Project decisions
 
-Last updated: 23 October 2026.
+Last updated: 1 November 2026.
 
 This file records agreed project decisions. Approval of a design does not mean its implementation is complete. The assignment brief remains in Task.md; current progress is tracked in Context.md.
 
@@ -240,3 +240,11 @@ The previously approved security and staff provisioning design has now been impl
 - Creation derives branch from the authenticated assignment; expected_branch_id only checks the form's original context. Reject mismatch409 so a reassignment cannot silently move a pending entry into a different branch. Versioned edits and creator/request UUID idempotency preserve identity, deadline and audit history.
 - Lock branch then entry, refresh after waits, and check the server clock again before changing anything. Seven days is168hours from immutable created_at. No scheduler or client-clock authority is required; interface timer follows server-relative time.
 - New migration0006 preserves existing records. Dedicated_test downgrade0005/re-upgrade/drift and local development upgrade/drift pass. Full140backend tests/93.96%coverage,76frontend tests/build and Ruff checks pass. Joined list summaries avoid per-entry branch/creator database lookups. Transfers/report review remain separate next work.
+
+## Transfers to head office (27 October 2026)
+
+- User requested building roadmap item1 and explicitly selected **waiting for the seven-day collection lock**. Whole-entry batches follow the recommendation. Preserve the immutable168-hour creation-based editing deadline.
+- Implementation choices: Lead submits1–100entries for their current Active branch; independent Finance confirms receipt or returns with a reason; Admin read-only; HR/Editor denied. Finance can settle existing submissions after branch pause/closure.
+- Submitted reserves the fixed batch; Returned releases it. Resubmit corrected metadata only if all original entries remain available. Lead cancellation releases reservations, including on inactive branches. Confirmed/Cancelled terminal; no deletion, partial confirmation, reversal or bank integration.
+- Exact PKR decimal strings, BigInt selection cents, database numeric totals, unique active allocations, safe retries, version checks and atomic audits protect reconciliation. Distinguish not-submitted, eligible, awaiting-confirmation and confirmed-received totals.
+- Remain on feature/branch-management; no new dependencies/branches/commits/pushes/deployment. Details in docs/TRANSFERS.md; observed verification in the execution ledger.

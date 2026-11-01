@@ -21,6 +21,7 @@ from app.middleware import SecurityMiddleware
 from app.public import router as public_router
 from app.rate_limits import get_redis
 from app.staff import router as staff_router
+from app.transfers import router as transfers_router
 
 
 @asynccontextmanager
@@ -57,6 +58,7 @@ def create_app() -> FastAPI:
     api.include_router(branches_router)
     api.include_router(membership_router)
     api.include_router(collections_router)
+    api.include_router(transfers_router)
     app.include_router(api)
     app.add_middleware(SecurityMiddleware)
     app.add_middleware(
