@@ -3,7 +3,7 @@ services:
   - type: web
     name: branch-office
     runtime: docker
-    plan: starter
+    plan: 0.5c-512mb
     region: frankfurt
     dockerfilePath: ./Dockerfile
     dockerContext: .
@@ -31,7 +31,7 @@ services:
         sync: false
   - type: keyvalue
     name: branch-office-redis
-    plan: starter
+    plan: 256mb
     region: frankfurt
     ipAllowList: []
     maxmemoryPolicy: noeviction

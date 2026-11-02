@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+import '@testing-library/jest-dom/vitest';
 import {cleanup,render,screen} from '@testing-library/react';
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 import About from './About';
@@ -32,5 +34,3 @@ it('uses contact publication without changing get-involved content',async()=>{
  rerender(<ContactPage language="en" join/>);
  expect(screen.queryByRole('heading',{name:'Contact our office',level:1})).not.toBeInTheDocument();
 });
-// @vitest-environment jsdom
-import '@testing-library/jest-dom/vitest';

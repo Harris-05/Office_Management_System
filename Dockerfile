@@ -17,5 +17,5 @@ COPY --from=frontend /build/frontend/dist /app/frontend/dist
 USER 10001:10001
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=8s --start-period=15s --retries=3 \
-  CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:'+os.environ.get('PORT','8000')+'/health/ready',timeout=5)" || exit 1
+  CMD python -m app.health_probe
 CMD ["python", "-m", "app.serve"]

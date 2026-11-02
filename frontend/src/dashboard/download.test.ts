@@ -13,7 +13,7 @@ test('downloads the complete authenticated CSV response with a filename', async 
   Object.defineProperty(URL, 'createObjectURL', {configurable: true, value: create});
   Object.defineProperty(URL, 'revokeObjectURL', {configurable: true, value: revoke});
   let clicked: HTMLAnchorElement | null = null;
-  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function () {clicked = this;});
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {clicked = this;});
   await downloadCollections('branch_id=branch&date_from=2020-01-01');
   expect(fetcher).toHaveBeenCalledWith('/api/dashboard/export.csv?branch_id=branch&date_from=2020-01-01', expect.objectContaining({credentials: 'same-origin'}));
   expect(clicked!.download).toBe('collections.csv');

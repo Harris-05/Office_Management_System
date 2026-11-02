@@ -13,7 +13,7 @@ const snapshot={collection_total:'0.03',collection_count:2,transfer_total:'0.00'
 const row={id:'report',code:'RPT-BR-000001-2026-10-26',branch,week_start:'2026-10-26',week_end:'2026-11-02',status:'Submitted',version:2,narrative:'Synthetic narrative',snapshot,discrepancy:false,can_edit:false,can_submit:false,can_review:true,revision_number:1,submitted_at:'2026-11-02T00:00:00Z',approved_at:null,created_at:'2026-10-26T00:00:00Z'};
 const page=(items:unknown[])=>({items,total:items.length,offset:0,limit:25});
 beforeEach(()=>{window.history.replaceState({},'', '/staff/reports');vi.mocked(api).mockImplementation(async path=>path.includes('/branches')?page([branch]):path.includes('/audit')||path.includes('/revisions')?page([]):path.startsWith('/api/reports?')?page([row]):row);});
-afterEach(()=>{cleanup();vi.resetAllMocks();});
+afterEach(()=>{cleanup();vi.resetAllMocks();vi.unstubAllGlobals();});
 
 test('review requires acknowledgement and retains reason on stale snapshot',async()=>{
  render(<Reports user={user}/>);
@@ -34,7 +34,7 @@ test('approved report shows frozen totals and discrepancy notice without review 
  render(<Reports user={user}/>);
  await userEvent.click(await screen.findByRole('button',{name:/View report/}));
  expect(await screen.findByText(/Ledger changes detected/)).toBeVisible();
- expect(screen.getByRole('link',{name:'Download PDF'})).toHaveAttribute('href','/api/reports/report/export.pdf');
+ expect(screen.getByRole('button',{name:'Download PDF'})).toBeEnabled();
  expect(screen.queryByRole('button',{name:'Approve report'})).not.toBeInTheDocument();
 });
 
@@ -73,4 +73,41 @@ test('detail restores from the report URL and open week explains submission timi
  expect(screen.queryByRole('button',{name:'Submit report'})).not.toBeInTheDocument();
  await userEvent.click(screen.getByRole('button',{name:'Back to weekly reports'}));
  expect(window.location.search).toBe('');
+});
+
+test('failed export keeps narrative inputs and shows a recoverable error',async()=>{
+ const draft={...row,status:'Returned',can_edit:true,can_submit:true,can_review:false};
+ vi.mocked(api).mockImplementation(async path=>path.includes('/audit')||path.includes('/revisions')?page([]):path.startsWith('/api/reports?')?page([draft]):draft);
+ const fetcher=vi.fn().mockResolvedValue({ok:false,status:422,json:async()=>({detail:'Unsupported PDF character. Use CSV.'})});
+ vi.stubGlobal('fetch',fetcher);
+ render(<Reports user={{...user,role:'Branch Lead'}}/>);
+ await userEvent.click(await screen.findByRole('button',{name:/View report/}));
+ await userEvent.click(await screen.findByRole('button',{name:'Edit narrative'}));
+ fireEvent.change(screen.getByLabelText('Weekly narrative (English or Urdu)'),{target:{value:'Preserve my narrative'}});
+ await userEvent.click(screen.getByRole('button',{name:'Download PDF'}));
+ expect(await screen.findByRole('alert')).toHaveTextContent('Unsupported PDF character');
+ expect(screen.getByLabelText('Weekly narrative (English or Urdu)')).toHaveValue('Preserve my narrative');
+ expect(fetcher).toHaveBeenCalledWith('/api/reports/report/export.pdf',expect.objectContaining({credentials:'same-origin'}));
+});
+
+test('expired export session notifies shell without navigating away',async()=>{
+ const invalid=vi.fn();window.addEventListener('branch-session-invalid',invalid);
+ vi.stubGlobal('fetch',vi.fn().mockResolvedValue({ok:false,status:401,json:async()=>({detail:'Session expired.'})}));
+ render(<Reports user={user}/>);
+ await userEvent.click(await screen.findByRole('button',{name:/View report/}));
+ await userEvent.click(screen.getByRole('button',{name:'Download CSV'}));
+ expect(await screen.findByRole('alert')).toHaveTextContent('Session expired');
+ expect(invalid).toHaveBeenCalledTimes(1);
+ expect(window.location.pathname).toBe('/staff/reports');
+ window.removeEventListener('branch-session-invalid',invalid);
+});
+
+test('oversized returned period clearly labels the last submission and blocks resubmit',async()=>{
+ window.history.replaceState({},'', '/staff/reports?report=report');
+ vi.mocked(api).mockImplementation(async path=>path.includes('/audit')||path.includes('/revisions')?page([]):path.startsWith('/api/reports?')?page([row]):({...row,status:'Returned',can_review:false,can_edit:true,can_submit:false,preview_unavailable:true,preview_unavailable_reason:'Live source count exceeds report limit.',snapshot_basis:'last_submission',discrepancy:true}));
+ render(<Reports user={{...user,role:'Branch Lead'}}/>);
+ expect(await screen.findByRole('heading',{name:'Last submitted figures'})).toBeVisible();
+ expect(screen.getByText('Live source count exceeds report limit.')).toBeVisible();
+ expect(screen.queryByRole('button',{name:'Resubmit report'})).not.toBeInTheDocument();
+ expect(screen.queryByText(/This reporting week is open/)).not.toBeInTheDocument();
 });

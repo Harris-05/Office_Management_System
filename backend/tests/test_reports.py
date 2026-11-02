@@ -205,3 +205,51 @@ def test_snapshot_transfer_status_revisions_and_backfill(staff, db_session, monk
 def test_week_boundary_is_monday_in_pakistan():
     assert service.monday(datetime(2026, 11, 1, 18, 59, 59, tzinfo=UTC)) == date(2026, 10, 26)
     assert service.monday(datetime(2026, 11, 1, 19, 0, 0, tzinfo=UTC)) == date(2026, 11, 2)
+
+
+def test_oversized_live_period_can_be_returned_without_losing_frozen_history(
+    staff, db_session, monkeypatch
+):
+    lead, user = staff()
+    branch = assigned_branch(db_session, user)
+    report = draft(db_session, branch, monkeypatch)
+    finance, _ = staff(UserRole.FINANCE_REVIEWER)
+    monkeypatch.setattr(service, "EXPORT_LIMIT", 1)
+    create(lead, amount="0.01", collected_on="2026-10-27")
+    row = lead.get(f"/api/reports/{report.id}").json()
+    submitted = command(lead, row, "submit")
+    assert submitted.status_code == 200, submitted.text
+    frozen = submitted.json()
+    create(lead, amount="0.02", collected_on="2026-10-28")
+    assert command(finance, frozen, "approve", acknowledge=True).status_code == 409
+    returned = command(finance, frozen, "return", acknowledge=True)
+    assert returned.status_code == 200, returned.text
+    row = returned.json()
+    assert row["status"] == "Returned"
+    assert row["preview_unavailable"] and row["preview_unavailable_reason"]
+    assert row["snapshot_basis"] == "last_submission"
+    assert row["discrepancy"] and not row["can_submit"]
+    assert row["snapshot"]["collection_total"] == "0.01"
+    detail = lead.get(f"/api/reports/{report.id}")
+    assert detail.status_code == 200
+    revisions = lead.get(f"/api/reports/{report.id}/revisions").json()
+    assert revisions["total"] == 1
+    assert revisions["items"][0]["snapshot"]["collection_total"] == "0.01"
+    assert lead.get(f"/api/reports/{report.id}/export.pdf").status_code == 200
+    csv = lead.get(f"/api/reports/{report.id}/export.csv")
+    assert csv.status_code == 200
+    assert "Last submitted figures" in csv.text and "0.01" in csv.text
+
+
+def test_register_omits_source_snapshots_but_detail_keeps_them(staff, db_session, monkeypatch):
+    lead, user = staff()
+    branch = assigned_branch(db_session, user)
+    report = draft(db_session, branch, monkeypatch)
+    create(lead, amount="0.01", collected_on="2026-10-27")
+    row = lead.get(f"/api/reports/{report.id}").json()
+    submitted = command(lead, row, "submit")
+    assert submitted.status_code == 200
+    register = lead.get("/api/reports").json()
+    assert all("snapshot" not in item for item in register["items"])
+    detail = lead.get(f"/api/reports/{report.id}").json()
+    assert detail["snapshot"]["collection_total"] == "0.01"

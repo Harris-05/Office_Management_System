@@ -1,9 +1,11 @@
-import {useEffect,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import type {User} from '../types';
 import useResource from '../branches/useResource';
-import {BranchFilter,History,LoadState,Pagination,RecordFeedback,date,queryString,useRecord} from '../membership/shared';
+import {BranchFilter,LoadState,Pagination,RecordFeedback,date,queryString,useRecord} from '../membership/shared';
+import type {HistoryEvent} from '../membership/types';
 import {calendarDate,formatMoney} from '../collections/display';
 import type {Page,Report,Revision,Snapshot} from './types';
+import {downloadReport} from './download';
 import '../membership/membership.css';
 import './reports.css';
 
@@ -43,22 +45,33 @@ function ReportDetail({id,onBack}:{id:string;onBack:()=>void}){
   const record=useRecord<Report>(`/api/reports/${id}`);
   const {row,busy}=record;
   const [action,setAction]=useState<Action|null>(null);
+  const [downloading,setDownloading]=useState<'pdf'|'csv'|null>(null);
+  const [downloadError,setDownloadError]=useState('');
+  const downloadRunning=useRef(false);
+  const download=async(format:'pdf'|'csv')=>{
+    if(!row||downloadRunning.current)return;
+    downloadRunning.current=true;setDownloading(format);setDownloadError('');
+    try{await downloadReport(id,format,row.code);}catch(error){setDownloadError(error instanceof Error?error.message:'Unable to export report. Please retry.');}
+    finally{downloadRunning.current=false;setDownloading(null);}
+  };
   const available=(name:Action)=>row&&(name==='narrative'?row.can_edit:name==='submit'?row.can_submit:row.can_review);
   const active=action&&available(action)?action:null;
   return <div className="membership report-management"><button className="secondary back" disabled={busy} onClick={onBack}>Back to weekly reports</button>
     {!row?<><h1 id="screen-title">Weekly report</h1><LoadState loading={record.query.loading} error={record.query.error} retry={record.query.reload}>{null}</LoadState></>:<>
       <header className="hr-heading hr-detail-heading"><div><h1 id="screen-title" tabIndex={-1}>Week of {calendarDate(row.week_start)}</h1><p>{row.branch.name} · {row.branch.code}</p><p className="hr-code">{row.code}</p></div><span className={`hr-status report-status-${row.status.toLowerCase()}`}>{row.status}</span></header>
       <RecordFeedback record={record}/>
-      {row.discrepancy&&<p className="report-discrepancy" role="status">Ledger changes detected. This {row.status.toLowerCase()} report retains its frozen submission figures.{row.status==='Submitted'?' Finance must return it for a fresh submission before approval.':' Approved figures remain unchanged.'}</p>}
-      <section className="report-period"><h2>{row.status==='Draft'||row.status==='Returned'?'Live draft preview':'Frozen submitted figures'}</h2><p>{calendarDate(row.week_start)} 00:00 through {calendarDate(row.week_end)} 00:00, end exclusive · Asia/Karachi</p><p>Collections use the actual collection date. Transfers use the transfer date, with statuses as of the snapshot time.</p>{row.submitted_at&&<p>Submission revision {row.revision_number} · {date(row.submitted_at)}</p>}{row.approved_at&&<p>Approved {date(row.approved_at)}</p>}</section>
+      {downloadError&&<p role="alert" className="report-discrepancy">{downloadError}</p>}
+      {row.preview_unavailable&&<p className="report-discrepancy" role="status">{row.preview_unavailable_reason}</p>}
+      {row.discrepancy&&!row.preview_unavailable&&<p className="report-discrepancy" role="status">Ledger changes detected. This {row.status.toLowerCase()} report retains its frozen submission figures.{row.status==='Submitted'?' Finance must return it for a fresh submission before approval.':' Approved figures remain unchanged.'}</p>}
+      <section className="report-period"><h2>{row.snapshot_basis==='last_submission'?'Last submitted figures':row.status==='Draft'||row.status==='Returned'?'Live draft preview':'Frozen submitted figures'}</h2><p>{calendarDate(row.week_start)} 00:00 through {calendarDate(row.week_end)} 00:00, end exclusive · Asia/Karachi</p><p>Collections use the actual collection date. Transfers use the transfer date, with statuses as of the snapshot time.</p>{row.preview_unavailable&&<p>The figures below are the previous submission. Resubmission requires a complete live preview.</p>}{row.submitted_at&&<p>Submission revision {row.revision_number} · {date(row.submitted_at)}</p>}{row.approved_at&&<p>Approved {date(row.approved_at)}</p>}</section>
       {row.snapshot&&<Figures snapshot={row.snapshot}/>}
       <section className="report-narrative"><h2>Branch narrative</h2><p className="hr-message" dir="auto">{row.narrative||'No narrative supplied.'}</p></section>
-      <div className="hr-actions"><a className="secondary" href={`/api/reports/${id}/export.pdf`}>Download PDF</a><a className="secondary" href={`/api/reports/${id}/export.csv`}>Download CSV</a>{!active&&(['narrative','submit','approve','return'] as Action[]).filter(available).map(name=><button key={name} className={name==='approve'||name==='submit'?'primary':'secondary'} onClick={()=>setAction(name)}>{name==='submit'&&row.revision_number?'Resubmit report':labels[name]}</button>)}</div>
-      {row.can_edit&&!row.can_submit&&<p className="report-guidance">This reporting week is open. Submission becomes available after the next Monday at 00:00 Asia/Karachi.</p>}
+      <div className="hr-actions"><button className="secondary" disabled={busy||!!downloading} onClick={()=>void download('pdf')}>{downloading==='pdf'?'Downloading PDF…':'Download PDF'}</button><button className="secondary" disabled={busy||!!downloading} onClick={()=>void download('csv')}>{downloading==='csv'?'Downloading CSV…':'Download CSV'}</button>{!active&&(['narrative','submit','approve','return'] as Action[]).filter(available).map(name=><button key={name} className={name==='approve'||name==='submit'?'primary':'secondary'} onClick={()=>setAction(name)}>{name==='submit'&&row.revision_number?'Resubmit report':labels[name]}</button>)}</div>
+      {row.can_edit&&!row.can_submit&&!row.preview_unavailable&&<p className="report-guidance">This reporting week is open. Submission becomes available after the next Monday at 00:00 Asia/Karachi.</p>}
       {active&&<Decision key={`${active}:${row.version}`} action={active} row={row} busy={busy} onCancel={()=>setAction(null)} onSave={async fields=>{if(await record.mutate(active,fields))setAction(null);}}/>}
       {row.snapshot&&<SourceDetails snapshot={row.snapshot}/>}
       <SubmissionHistory key={`revisions:${row.version}`} id={id}/>
-      <History key={`audit:${row.version}`} path={`/api/reports/${id}`}/>
+      <ReportAudit key={`audit:${row.version}`} id={id}/>
     </>}
   </div>;
 }
@@ -88,4 +101,10 @@ function SubmissionHistory({id}:{id:string}){
   const [offset,setOffset]=useState(0);
   const query=useResource<Page<Revision>>(`/api/reports/${id}/revisions?offset=${offset}&limit=25`);
   return <section className="hr-history"><h2>Submission revisions</h2><LoadState loading={query.loading} error={query.error} retry={query.reload}>{query.data&&<>{query.data.items.length?<ol>{query.data.items.map(item=><li key={item.id}><details><summary>Revision {item.number} · {date(item.submitted_at)}</summary><Figures snapshot={item.snapshot}/><p className="hr-message" dir="auto">{item.narrative||'No narrative supplied.'}</p><SourceDetails snapshot={item.snapshot}/></details></li>)}</ol>:<p>No submission yet. The first submission will preserve a revision here.</p>}<Pagination offset={offset} total={query.data.total} onChange={setOffset}/></>}</LoadState></section>;
+}
+
+function ReportAudit({id}:{id:string}){
+  const [offset,setOffset]=useState(0);
+  const query=useResource<Page<HistoryEvent>>(`/api/reports/${id}/audit?offset=${offset}&limit=25`);
+  return <section className="hr-history"><h2>Change history</h2><LoadState loading={query.loading} error={query.error} retry={query.reload}>{query.data&&<>{query.data.items.length?<ol>{query.data.items.map(item=><li key={item.id}><div className="hr-history-heading"><strong>{item.action.replaceAll('_',' ')}</strong><time dateTime={item.created_at}>{date(item.created_at)}</time></div><p dir="auto">{item.actor?.name??(item.action==='report_generated'?'System maintenance':'Former staff member')}{item.reason?` · ${item.reason}`:''}</p><details><summary>View recorded changes</summary><dl>{Object.entries(item.after).map(([key,value])=><div key={key}><dt>{key.replaceAll('_',' ')}</dt><dd dir="auto">{item.before?`${String(item.before[key]??'None')} → `:''}{String(value??'None')}</dd></div>)}</dl></details></li>)}</ol>:<p>No changes recorded yet.</p>}<Pagination offset={offset} total={query.data.total} onChange={setOffset}/></>}</LoadState></section>;
 }

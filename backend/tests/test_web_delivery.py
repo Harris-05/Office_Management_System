@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.web import install_frontend
+from app.middleware import SecurityMiddleware
+from app.config import get_settings
 
 
 def test_spa_refresh_and_asset_routes_preserve_api_boundaries(tmp_path):
@@ -25,3 +27,24 @@ def test_missing_frontend_is_safe_in_development(tmp_path):
     install_frontend(app, tmp_path / "absent")
     with TestClient(app) as client:
         assert client.get("/").status_code == 404
+
+
+def test_production_delivery_restricts_executable_sources(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.setenv("COOKIE_SECURE", "true")
+    monkeypatch.setenv("ALLOWED_HOSTS", '["office.example"]')
+    monkeypatch.setenv("ALLOWED_ORIGINS", '["https://office.example"]')
+    monkeypatch.setenv("RATE_LIMIT_SECRET", "production-header-test-only-secret-long-enough")
+    get_settings.cache_clear()
+    app = FastAPI()
+    app.add_middleware(SecurityMiddleware)
+
+    @app.get("/health")
+    def health():
+        return {"status": "ok"}
+
+    with TestClient(app) as client:
+        response = client.get("/health")
+        assert "script-src 'self'" in response.headers["content-security-policy"]
+        assert "object-src 'none'" in response.headers["content-security-policy"]
+        assert "max-age=" in response.headers["strict-transport-security"]

@@ -26,8 +26,10 @@ class ContentDocument(Base):
         CheckConstraint("kind IN ('program','event','page')", name="ck_content_kind"),
         CheckConstraint("version > 0", name="ck_content_version"),
         CheckConstraint(
-            "(kind = 'program' AND program_id IS NOT NULL AND event_id IS NULL AND page_key IS NULL) OR "
-            "(kind = 'event' AND event_id IS NOT NULL AND program_id IS NULL AND page_key IS NULL) OR "
+            "(kind = 'program' AND program_id IS NOT NULL "
+            "AND event_id IS NULL AND page_key IS NULL) OR "
+            "(kind = 'event' AND event_id IS NOT NULL "
+            "AND program_id IS NULL AND page_key IS NULL) OR "
             "(kind = 'page' AND program_id IS NULL AND event_id IS NULL AND page_key IS NOT NULL "
             "AND page_key IN ('home','about','contact'))",
             name="ck_content_target",

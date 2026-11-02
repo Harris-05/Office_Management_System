@@ -28,8 +28,10 @@ def upgrade():
         sa.CheckConstraint("kind IN ('program','event','page')", name="ck_content_kind"),
         sa.CheckConstraint("version > 0", name="ck_content_version"),
         sa.CheckConstraint(
-            "(kind = 'program' AND program_id IS NOT NULL AND event_id IS NULL AND page_key IS NULL) OR "
-            "(kind = 'event' AND event_id IS NOT NULL AND program_id IS NULL AND page_key IS NULL) OR "
+            "(kind = 'program' AND program_id IS NOT NULL "
+            "AND event_id IS NULL AND page_key IS NULL) OR "
+            "(kind = 'event' AND event_id IS NOT NULL "
+            "AND program_id IS NULL AND page_key IS NULL) OR "
             "(kind = 'page' AND program_id IS NULL AND event_id IS NULL AND page_key IS NOT NULL "
             "AND page_key IN ('home','about','contact'))",
             name="ck_content_target",
@@ -56,7 +58,7 @@ def upgrade():
     )
     op.create_index("ix_content_revisions_document_id", "content_revisions", ["document_id"])
     # Adopt existing catalogue records, retaining their IDs, publication and demo labels.
-    # A deterministic document ID equals its existing target ID (UUIDs are globally random).
+    # Document IDs are independent: valid source IDs may overlap across the two tables.
     for kind, table, target, extra in (
         (
             "program",
@@ -79,16 +81,20 @@ def upgrade():
         )
         op.execute(
             sa.text(
-                f"INSERT INTO content_documents (id,kind,{target},draft,published,is_published,version) "
-                f"SELECT id,'{kind}',id,{fields},CASE WHEN is_published THEN {fields} ELSE NULL END,"
+                f"INSERT INTO content_documents (id,kind,{target},draft,published,"
+                "is_published,version) "
+                f"SELECT gen_random_uuid(),'{kind}',id,{fields},"
+                f"CASE WHEN is_published THEN {fields} ELSE NULL END,"
                 f"is_published,1 FROM {table}"
             )
         )
     op.execute(
         sa.text(
             "INSERT INTO content_revisions (id,document_id,version,action,reason,snapshot) "
-            "SELECT id,id,1,'imported','Existing catalogue adopted without changing public content',"
-            "jsonb_build_object('draft',draft,'published',published,'is_published',is_published) FROM content_documents"
+            "SELECT id,id,1,'imported',"
+            "'Existing catalogue adopted without changing public content',"
+            "jsonb_build_object('draft',draft,'published',published,"
+            "'is_published',is_published) FROM content_documents"
         )
     )
 

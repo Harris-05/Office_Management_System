@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+import '@testing-library/jest-dom/vitest';
 import { cleanup,fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach,beforeEach, expect, it, vi } from 'vitest';
 import { api, ApiError } from '../api';
@@ -42,5 +44,22 @@ it('denies other staff roles without loading drafts', () => {
  expect(screen.getByRole('alert')).toHaveTextContent('Content Editor or Super Admin');
  expect(api).not.toHaveBeenCalled();
 });
-// @vitest-environment jsdom
-import '@testing-library/jest-dom/vitest';
+it('keeps a duplicate slug editable so the author can correct and retry',async()=>{
+ render(<ContentManager user={user}/>);
+ fireEvent.click(await screen.findByRole('button',{name:'New content'}));
+ fireEvent.change(screen.getByLabelText('Title (English)'),{target:{value:'New program'}});
+ fireEvent.change(screen.getByLabelText('Reason for change'),{target:{value:'New draft'}});
+ vi.mocked(api).mockRejectedValueOnce(new ApiError(409,'This slug or page is already in use. Choose a unique value.'));
+ fireEvent.submit(screen.getByRole('button',{name:'Save draft'}).closest('form')!);
+ expect(await screen.findByRole('alert')).toHaveTextContent('slug or page');
+ expect(screen.getByLabelText('Title (English)')).toHaveValue('New program');
+ expect(screen.getByRole('button',{name:'Save draft'})).toBeEnabled();
+ expect(screen.queryByRole('button',{name:'Reload latest version'})).not.toBeInTheDocument();
+});
+it('requires saving local edits before either publication command',async()=>{
+ render(<ContentManager user={user}/>);
+ fireEvent.click(await screen.findByRole('button',{name:'Edit Community learning'}));
+ fireEvent.change(await screen.findByLabelText('Title (English)'),{target:{value:'Unsaved copy'}});
+ expect(screen.getByRole('button',{name:'Publish saved draft'})).toBeDisabled();
+ expect(screen.getByRole('button',{name:'Unpublish'})).toBeDisabled();
+});
