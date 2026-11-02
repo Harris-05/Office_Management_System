@@ -1,21 +1,23 @@
-import { useEffect } from 'react';
-import App from './App';
+import { lazy, Suspense, useEffect } from 'react';
 import PublicSite from './public/PublicSite';
 import { publicPageForPath } from './public/routes';
 
+const App = lazy(() => import('./App'));
+
 export default function Site({ path = window.location.pathname }: { path?: string }) {
-  const staff = path === '/staff' || path === '/staff/';
+  const staffPage = path.replace(/\/$/,'').split('/')[2];
+  const staff = ['/staff','/staff/','/staff/branches','/staff/branches/','/staff/applications','/staff/applications/','/staff/members','/staff/members/','/staff/collections','/staff/collections/','/staff/transfers','/staff/transfers/','/staff/reports','/staff/reports/','/staff/dashboard','/staff/dashboard/','/staff/content','/staff/content/'].includes(path);
   const page = publicPageForPath(path);
   useEffect(() => {
     if (page) return;
     document.documentElement.lang = 'en';
     document.documentElement.dir = 'ltr';
     document.title = staff ? 'Staff portal | Branch Office' : 'Page not found | Branch Office';
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', staff ? '#153c35' : '#500f1c');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#500f1c');
   }, [path, staff, page]);
 
   if (page) return <PublicSite page={page} />;
-  if (staff) return <App />;
+  if (staff) return <Suspense fallback={<main><h1>Opening your workspace</h1><p role="status">Loading staff portal…</p></main>}><App initialPage={staffPage === 'branches' || staffPage === 'applications' || staffPage === 'members' || staffPage === 'collections' || staffPage === 'transfers' || staffPage === 'reports' || staffPage === 'dashboard' || staffPage === 'content' ? staffPage : 'home'} /></Suspense>;
   return <main className="public-site public-not-found">
     <h1>Page not found</h1>
     <p>This page isn’t available. You can return to the public website or open the staff portal.</p>

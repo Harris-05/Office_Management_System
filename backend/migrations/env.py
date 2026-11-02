@@ -1,8 +1,13 @@
 from alembic import context
 
+from app.collection_models import Collection  # noqa: F401 -- register collection metadata
+from app.content_models import ContentDocument  # noqa: F401 -- register content metadata
 from app.database import Base, database_url, get_engine
+from app.membership_models import Member  # noqa: F401 -- register membership metadata
 from app.models import User  # noqa: F401 -- register model metadata
 from app.public_models import Branch  # noqa: F401 -- register public metadata
+from app.report_models import Report  # noqa: F401 -- register reporting metadata
+from app.transfer_models import Transfer  # noqa: F401 -- register transfer metadata
 
 target_metadata = Base.metadata
 

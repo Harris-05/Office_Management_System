@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
-
 .signed-in { grid-template-columns: 240px minmax(0, 1fr) !important; }
 .signed-in .intro { padding: 32px 24px; }
 .signed-in .intro-copy h1 { font-size: 30px; letter-spacing: -1px; }

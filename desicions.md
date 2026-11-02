@@ -1,6 +1,6 @@
 # Project decisions
 
-Last updated: 23 October 2026.
+Last updated: 2 November 2026.
 
 This file records agreed project decisions. Approval of a design does not mean its implementation is complete. The assignment brief remains in Task.md; current progress is tracked in Context.md.
 
@@ -200,3 +200,68 @@ The previously approved security and staff provisioning design has now been impl
 - Real mobile Chrome can report fractional CSS stage heights while innerHeight is integral. Allow1CSSpixel rounding tolerance when deciding if the story fits, preventing sticky/natural height feedback and document jumps. Keep readable oversized-stage fallback; do not intercept wheel/touch.
 - Home stacks at900px to avoid compressed portrait tablet columns. Use consistent20–32px side gutters; compact the header below380px so menu/language controls keep the right gutter. Responsive overrides are scoped to Home.
 - Exact375x667 wheel reproduction recorded192pinning changes before and0after; failing regression now passes. Twelve bilingual phone/tablet viewport checks and48frontend tests/build pass.
+
+## Staff login visual consistency (24 October 2026)
+
+- Apply the approved public burgundy theme to the staff entry and shared staff controls. Scope new styles beneath staff-shell to prevent changing public pages. Preserve existing authentication/session and form behavior.
+- Keep a split brand/form layout on desktop, stack below760px, use16px labels/inputs and min54px input/56px submit heights. Make public Home reachable from the logo and a labelled backlink. Success/error states keep semantic colour and text, with visible focus.
+
+## Branch management approval and implementation (24 October 2026)
+
+- User approved docs/superpowers/specs/2026-10-24-branch-management-design.md. Extend existing branch records; generated immutable BR codes, Forming/Active/Paused/Closed, one lead/branch and one branch/lead, SA registry management and assigned-only Lead reads. Other internal roles denied in this module.
+- Only published Active branches appear publicly or accept new volunteer interests. Pause/close unpublish; reactivation remains draft. Close is terminal, retains audit and releases assignment. No deletion or silent transfer.
+- Use PostgreSQL sequence allocation, row locks plus expected revision, uniqueness constraints and atomic BranchAudit snapshots. Failed/conflicting writes retain drafts. POST commands match current CSRF/CORS conventions. Search/control input is bounded and validated before SQL.
+- Resolve prior narrow auth findings: generation guards prevent late password callbacks restoring logged-out UI; malformed NUL login is422; reset target NOWAIT lock returns controlled409 rather than entering opposing actor/target waits. Existing wrong JSON shapes already validated correctly.
+- Keep direct /staff/branches authenticated entry and browser navigation. Staff uses English controls, bilingual content/RTL Urdu fields, and the burgundy theme. Scoped list/detail/form/audit screens and paged eligible lead selection preserve the pending selected account across pages.
+- Full95backend tests/92.22%coverage,57frontend tests/build and actual admin/Lead/public browser checks pass. Local schema0004 applied; original sample relationships retained. User controls commits/integration; branch unchanged.
+
+## Volunteer review and member register (24 October 2026)
+
+- User selected complete review over inbox-only and approved docs/superpowers/specs/2026-10-24-volunteer-review-design.md. Super Admin/HR manage applications and members globally; other staff roles have no private member access. Safe HR branch options do not change full branch-register permissions.
+- Reuse public volunteer submissions as Pending applications. Accepted/Declined are final and require a reason/revision/confirmation. Acceptance requires the original branch Active, regardless of publication. No silent reassignment, merge or automatic staff account.
+- Members have sequence-generated immutable MEM codes and one normalised email globally, including Inactive members. Atomic acceptance saves member/audits/decision together. Row locks and uniqueness handle simultaneous reviews; duplicate responses include the existing member code, including after a uniqueness conflict.
+- Team/organisational role are labels, separate from system permissions. Allow audited label/status edits; reactivation requires an Active branch. Identity/branch/source remain read-only; no transfer/delete action.
+- Keep90day application retention: history cascades on cleanup and member source becomesNULL; membership survives. Do not copy application messages/email/decision reasons into persistent creation events. Public bilingual consent explains membership retention separately. Broader member retention/erasure policy remains future work.
+- Keep burgundy staff identity and existing cookie/CSRF/Redis guard. Direct applications/members routes, role navigation and409 draft retention are implemented. Pending branch-filter label survives later-page selection and return from detail.
+- Verified114backend tests/92.90%coverage,68frontend tests/build, migration up/down/up/drift, independent transaction races and real-browser public→HR→member/decline/duplicate/role checks. Labelled synthetic applications remain reviewed and their member Inactive. No new Git branch, commit, push or translation integration.
+
+## Offline collection editing window (24 October 2026)
+
+- User confirmed that the seven-day editing window starts when the collection entry is created in the system, rather than on the date the money was collected.
+- Use the immutable, server-generated creation timestamp: `locks_at = created_at + 7 days` (168 hours). The entry becomes read-only when server time reaches that deadline; enforce this in the API, not only in the interface.
+- Keep the collection date as a separate business field. Editing it or any other field does not reset or extend the original editing window. Store timestamps in UTC and display the deadline in the interface.
+- This decision fixes the lock reference time; collection fields, correction handling after locking, transfers and reporting rules remain to be specified.
+
+## Offline collection implementation (24 October 2026)
+
+- User requested building immediately after the lock decision. Proceeded with announced PKR/two-decimal defaults and the proposed role scope: Branch Lead writes their currently assigned Active branch; Super Admin/Finance inspect globally read-only; HR/Content Editor denied. No admin override, deletion or post-lock correction action.
+- Individual collection entries retain generated immutable COL codes, actual collection date, collector name and optional notes. Daily/weekly totals derive from these entries. Collector is an operational label, with no new access to private HR member records or donor contact data.
+- Amounts use Numeric(12,2), strict positive decimal-string API and exact decimal-string UI totals. Do not round overprecision or use binary floats for money. The display total covers all filtered entries across pagination.
+- Creation derives branch from the authenticated assignment; expected_branch_id only checks the form's original context. Reject mismatch409 so a reassignment cannot silently move a pending entry into a different branch. Versioned edits and creator/request UUID idempotency preserve identity, deadline and audit history.
+- Lock branch then entry, refresh after waits, and check the server clock again before changing anything. Seven days is168hours from immutable created_at. No scheduler or client-clock authority is required; interface timer follows server-relative time.
+- New migration0006 preserves existing records. Dedicated_test downgrade0005/re-upgrade/drift and local development upgrade/drift pass. Full140backend tests/93.96%coverage,76frontend tests/build and Ruff checks pass. Joined list summaries avoid per-entry branch/creator database lookups. Transfers/report review remain separate next work.
+
+## Transfers to head office (27 October 2026)
+
+- User requested building roadmap item1 and explicitly selected **waiting for the seven-day collection lock**. Whole-entry batches follow the recommendation. Preserve the immutable168-hour creation-based editing deadline.
+- Implementation choices: Lead submits1–100entries for their current Active branch; independent Finance confirms receipt or returns with a reason; Admin read-only; HR/Editor denied. Finance can settle existing submissions after branch pause/closure.
+- Submitted reserves the fixed batch; Returned releases it. Resubmit corrected metadata only if all original entries remain available. Lead cancellation releases reservations, including on inactive branches. Confirmed/Cancelled terminal; no deletion, partial confirmation, reversal or bank integration.
+- Exact PKR decimal strings, BigInt selection cents, database numeric totals, unique active allocations, safe retries, version checks and atomic audits protect reconciliation. Distinguish not-submitted, eligible, awaiting-confirmation and confirmed-received totals.
+- Remain on feature/branch-management; no new dependencies/branches/commits/pushes/deployment. Details in docs/TRANSFERS.md; observed verification in the execution ledger.
+
+## Completing the project and weekly report snapshots (2 November 2026)
+
+- User selected approach1 and explicitly requested completing all remaining features. Preserve feature/branch-management and user-controlled commits/PRs. Do not rewrite the user's intervening commits.
+- Reports freeze figures and narrative on submission; resubmission creates a new immutable revision. Finance compares full source membership/revisions before approval under the shared branch lock. Approved reports never change; later edits/backdated records raise a visible discrepancy. Do not shorten the collection's168-hour editing window.
+- Builder defaults: Monday00:00→next Monday00:00 Asia/Karachi; collections use actual collected_on, transfers transferred_on/status as-of snapshot. Closed-week submission only. Lead current Active branch writes; independent Finance reviews; Admin read-only; HR/Editor denied. Existing submissions may be settled after branch inactivity.
+- Automatic drafts are repeat-safe and unique by branch/week; bounded hourly maintenance starts at branch registration week and permits explicit historical backfill. It also runs existing session/correspondence cleanup. No report writes on GET.
+- Exact dashboard live totals/monthly trends remain separate from cumulative transfer reconciliation and frozen approved-report totals. Full scoped CSV is formula-safe and bounded; PDF embeds licensed Latin/Arabic fonts and HarfBuzz shaping. Pin fpdf2/uharfbuzz; retain OFL notices. Unsupported glyphs fail visibly and offer UTF-8 CSV.
+- CMS keeps private draft separate from public copy. Explicit publish validates/copies atomically; events retain branch lifecycle/publication gating. Plain bilingual text only; no upload, raw HTML or external translation service.
+- Use one non-root production image for React/FastAPI, explicit SPA paths, schema+Redis readiness and production CSP/HSTS. Local full-stack Compose runs app18080 and hourly worker; Render Blueprint uses main/manual deployment and an hourly cron. Do not provision paid hosting or claim a live URL without access and verification.
+- Official organiser fixtures/expected totals, actual Render launch, remote main CI/PR verification and the user's final video/history remain external acceptance inputs. A tracked root HANDOVER.md preserves essential docs without altering the repository's docs/Context ignore policy.
+
+
+### Final dependency and performance checks (2 November 2026)
+
+- Audit found two fpdf2 advisories fixed in2.8.8. The current exporter accepts plain narrative text and fixed bundled fonts, with no user image/HTML loading; upgrade the pin to2.8.8 anyway and verify actual Urdu PDF exports. Official advisory/release: https://github.com/py-pdf/fpdf2/releases/tag/2.8.8.
+- Measure mobile performance before changes. Keep the chosen palette/fonts/scroll interactions; load staff code only on staff routes, self-host licensed font subsets, gzip public static assets only, and batch globe paths by depth. Do not compress private session/API responses or weaken security/rate limits for a score. Record measured results and local-versus-live limits in ACCEPTANCE.md.

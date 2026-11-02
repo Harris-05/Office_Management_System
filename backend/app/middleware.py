@@ -32,6 +32,18 @@ class SecurityMiddleware:
                 )
                 if settings.environment == "production":
                     headers.append((b"strict-transport-security", b"max-age=31536000"))
+                    headers.append(
+                        (
+                            b"content-security-policy",
+                            (
+                                "default-src 'self'; script-src 'self'; "
+                                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+                                "font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; "
+                                "connect-src 'self'; object-src 'none'; base-uri 'self'; "
+                                "form-action 'self'; frame-ancestors 'none'"
+                            ).encode("ascii"),
+                        )
+                    )
                 message["headers"] = headers
             await send(message)
 

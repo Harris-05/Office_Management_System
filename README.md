@@ -4,9 +4,9 @@ A web platform connecting volunteer branches with head office, alongside the org
 
 ## Project status
 
-**Public pages and staff account foundation.** Anyone can open the English/Urdu public website at `/`, with separate About, Programs, Branches, Events, Get Involved and Contact pages; staff sign-in/workspace is at `/staff`. Super Admins can create staff accounts and issue temporary-password resets. Staff complete a mandatory first-login password change. Login uses PostgreSQL-backed HttpOnly sessions, bcrypt with legacy-hash migration, CSRF protection and shared Redis rate limits. Business workflows, branch-scoped permissions and deployment remain to be implemented. See [security and account operations](SECURITY.md).
+**Public website and staff workflows.** Anyone can open the English/Urdu public website at `/`, with separate About, Programs, Branches, Events, Get Involved and Contact pages; staff sign-in/workspace is at `/staff`. Super Admins manage staff accounts and branches. HR Leads and Super Admins review applications and manage members. Branch Leads log collections and submit locked entries for transfer; Finance verifies receipt. Login uses PostgreSQL-backed HttpOnly sessions, bcrypt, CSRF protection, shared Redis limits and mandatory first-login password changes. Weekly reports, dashboards/exports and the staff content manager are implemented. Docker packaging and a Render Blueprint are provided; live hosting and official organiser-data acceptance remain external checks. See [security and account operations](SECURITY.md).
 
-The authentication and staff account foundation is implemented; the business workflows and deployment are still planned. See [the development guide](docs/DEVELOPMENT.md) for local setup, CI checks and branch protection instructions.
+Authentication, staff accounts, the public website, branch management, volunteer review/member registration, offline collections, transfer tracking, weekly reports, dashboards/exports and content management are implemented. See [the development guide](docs/DEVELOPMENT.md), [branch permissions/API](docs/BRANCHES.md), [application/member operations](docs/MEMBERSHIP.md), [collection operations](docs/COLLECTIONS.md) and [transfer operations](docs/TRANSFERS.md).
 
 ## The problem
 
@@ -66,7 +66,7 @@ Set-Location backend
 
 This creates three sample branches, three programs and six events with dates relative to the first seed. Re-running preserves existing content and edits; seeding is blocked in production. Every sample is marked as demo content. Replace it with official records before presenting the site as a real organisation. No automatic email is sent, and expressions of volunteer interest do not confirm a placement.
 
-Public API: `GET /api/public/catalog`, `POST /api/public/messages`, `POST /api/public/volunteers`. Submission endpoints use the existing anonymous CSRF session, allowed-origin checks, request-size bounds and Redis limits (five new submissions per IP per ten minutes). The caller supplies a UUID request reference; identical retries in the same session return the same receipt, and conflicting reuse returns 409. Public responses contain no private messages. `GET /api/staff/public-submissions?offset=0` requires staff authentication: Super Admin sees both kinds, HR Lead sees volunteer interests, and other roles are denied. This is an API inbox; a staff inbox screen and CMS editing remain separate work.
+Public API: `GET /api/public/catalog`, `POST /api/public/messages`, `POST /api/public/volunteers`. Submission endpoints use the existing anonymous CSRF session, allowed-origin checks, request-size bounds and Redis limits (five new submissions per IP per ten minutes). The caller supplies a UUID request reference; identical retries in the same session return the same receipt, and conflicting reuse returns 409. Public responses contain no private messages. `GET /api/staff/public-submissions?offset=0` requires staff authentication: Super Admin sees both kinds, HR Lead sees volunteer interests, and other roles are denied. Volunteer review now has a staff screen at /staff/applications; a contact-message screen and CMS editing remain separate work.
 
 Visitor names/emails/messages support the stated enquiry purpose and expire after 90 days. Schedule `python -m app.cleanup_public` daily in the deployment environment; it deletes expired submissions, and the staff API already excludes them. No IP address is stored with correspondence. Infrastructure backups need their own retention policy when hosting is configured.
 
@@ -111,9 +111,53 @@ Sign in as the sample Super Admin and select **Manage staff accounts**. Enter a 
 
 Login survives refresh via a server-side session and logout revokes it. Sessions expire after 30 minutes idle or 8 hours total. New passwords require at least 15 characters and at most 72 UTF-8 bytes. On a fresh non-demo installation, create the first Super Admin with `python -m app.bootstrap` from backend; it prompts for credentials without exposing a password in command arguments. Demo seeding is refused in production. See [SECURITY.md](SECURITY.md) for endpoint contracts, deployment settings and current limitations.
 
-## Planned architecture
+## Branch management
 
-Use one repository containing a React frontend and a modular FastAPI backend, connected to one PostgreSQL database. Backend modules will separate authentication, branches, applications, members, collections, reports, content and auditing.
+Open `/staff/branches` or choose **Manage branches** as Super Admin. Create/edit bilingual branch profiles, assign an active Branch Lead, manage Forming → Active ↔ Paused → Closed, and publish Active branches. Codes such as `BR-000001` are generated automatically. Pausing or closing unpublishes the branch; reactivation requires explicit republishing. Closing archives the record and releases its lead. Each lead can be assigned to one branch and has a read-only view of that branch and its audit history. There is no delete/reopen action.
+
+Changes and audit entries save atomically. Revision conflicts preserve your draft and offer an explicit reload. The public branch/event listings and volunteer-interest choices follow the same Active/publication rules. See [complete branch contracts and permission matrix](docs/BRANCHES.md).
+
+Latest branch verification: **95 backend tests**, **92.22% coverage**, **57 frontend tests**, production build, migration round-trip/model-drift, Ruff checks and actual admin/Lead browser flows pass. Synthetic browser-test branches were archived; the existing public samples were preserved.
+
+## Volunteer review and members
+
+Sign in as **HR Lead** (`hr@example.test`, seeded local password `Demo123!`) or **Super Admin**, then open `/staff/applications`. Search/filter Pending, Accepted or Declined applications. Open an application, choose Accept or Decline, supply a reason and confirm. Acceptance requires an Active branch and creates one member with a generated `MEM-000001` code; duplicate emails are prevented across the organisation. Decisions are final in this version.
+
+Use `/staff/members` to search by name, email or member code and filter by branch/status/team/organisational role. Update team, role and Active/Inactive status with an audited reason. Membership does not provide a login account. Application messages/review details expire after90days; accepted member records remain separately, as explained in the public form. See [permissions, contracts and retention](docs/MEMBERSHIP.md).
+
+Latest verification: **114 backend tests**, **92.90% coverage**, **68 frontend tests**, production build, Ruff, migration round-trip/drift and real browser workflows pass.
+
+## Offline collections
+
+Open `/staff/collections`. A **Branch Lead** assigned to an **Active branch** can record PKR amounts, collection date, collector and notes. Codes such as `COL-000001` are generated automatically. Entries lock **seven days after creation**, regardless of collection date; edits never extend the deadline. Every change is audited and requires the current revision. Repeated create requests are protected against duplicate receipts.
+
+**Super Admin and Finance Reviewer have read-only access** across branches. HR/Content Editor cannot access collections. Search and date/branch/window filters show an exact total across all matching entries, with pagination. See [collection permissions, contracts and locking](docs/COLLECTIONS.md).
+
+## Transfers to head office
+
+Open `/staff/transfers`. Branch Leads submit whole collection batches for their assigned Active branch **after the seven-day editing lock**. Finance confirms receipt or returns a batch for correction. Returned batches release their collections; the lead may resubmit the original batch if still available, or cancel. Confirmed and Cancelled are final, with retained audit history. Super Admin is read-only; HR/Content Editor are denied.
+
+Exact PKR balances separate funds not submitted, eligible entries, transfers awaiting confirmation and confirmed receipts. Submission never counts as confirmed receipt. No banking integration, partial transfers or receipt uploads. See [workflow, permissions and API](docs/TRANSFERS.md). Weekly reports, dashboard/exports and content management are available as described below.
+
+Collection verification: **140 backend tests**, **93.96% coverage**, **76 frontend tests**, production build, Ruff checks and migration round-trip/model-drift pass.
+
+## Weekly reports, dashboard and content management
+
+- `/staff/reports`: automatically generated Monday?Monday PKT reports, branch narrative, frozen submission revisions, Finance return/resubmission/approval, immutable approved figures, source discrepancy warnings, audit and UTF-8 CSV/embedded-font PDF exports.
+- `/staff/dashboard`: exact collection totals, monthly trends, cumulative transfer reconciliation, outstanding collections, report status/approved figures and complete authorized filtered CSV export.
+- `/staff/content`: bilingual programme/event/page drafts, protected previews, version conflicts, explicit publication/unpublication and attributed revision history. Editing a draft preserves the current public copy.
+
+Run the complete app and hourly maintenance worker:
+
+```powershell
+docker compose -f compose.yaml -f compose.app.yaml up -d --build
+```
+
+Open http://localhost:18080. See [HANDOVER.md](HANDOVER.md) for setup, the permission matrix, API map, exact financial definitions, scheduled jobs, backup/recovery and Render release steps. The [Render Blueprint](render.yaml) is prepared for review; no paid services are provisioned automatically by local setup.
+
+## Architecture
+
+Use one repository containing a React frontend and a modular FastAPI backend, connected to one PostgreSQL database. Backend modules separate authentication, branches, applications, members, collections, reports, content and auditing.
 
 ```text
 Public visitors and authenticated staff
@@ -125,7 +169,7 @@ Public visitors and authenticated staff
              PostgreSQL
 ```
 
-Serving the production frontend and API on one origin is the intended deployment layout; Render deployment configuration remains pending. Authentication uses server-side session cookies.
+The production Docker image serves the frontend and API on one origin; render.yaml defines the web service, PostgreSQL, Redis-compatible Key Value and scheduled maintenance. Authentication uses server-side session cookies.
 
 The backend must enforce permissions, branch boundaries, report transitions and record locks. Frontend controls alone do not provide access protection.
 
@@ -135,13 +179,13 @@ The public can browse published information and apply to volunteer. Authenticate
 
 | Role | Intended responsibility |
 | --- | --- |
-| Super Admin | Platform administration; exact administrative permissions to be defined |
+| Super Admin | Staff/branch/HR/content administration; finance read-only |
 | Finance Reviewer | Review weekly reports and approve or return submissions |
 | Content Editor | Manage website content through draft and published states |
 | Branch Lead | Manage permitted branch operations and submit weekly reports |
 | HR Lead | Review volunteer applications and accept or decline applicants |
 
-This table summarises responsibilities, rather than defining the final authorisation policy. A detailed permission matrix must specify each action and its branch scope. Organisational member roles are separate from system access roles; membership does not automatically imply a login account.
+See [the enforced permission matrix](HANDOVER.md#permission-matrix) for each action and its branch scope. Organisational member roles are separate from system access roles; membership does not automatically imply a login account.
 
 ## Required features
 
@@ -213,7 +257,7 @@ The completed submission must demonstrate:
 
 Additional requirements include at least **60% backend test coverage**, security against OWASP Top 10 risks, a Dockerfile and a health endpoint. Lighthouse **90+** is included in the judging criteria.
 
-Priority test areas will include cross-branch access, role permissions, application acceptance, collection lock boundaries, report transitions, approved-report immutability and financial calculations. On 23 October 2026, the authentication foundation passed 55 PostgreSQL/Redis-backed tests with 89.47% backend coverage on Python 3.14; Ruff lint/format and Alembic drift checks passed. The frontend passed 12 tests and its TypeScript/Vite production build. A browser walkthrough verified account creation, first-login password change, refresh restoration, role-specific UI and logout at desktop/tablet/mobile widths. One upstream Starlette/httpx deprecation warning remains. These results do not measure completion of the business features or verify the feature's GitHub CI run.
+Current acceptance evidence is in [ACCEPTANCE.md](ACCEPTANCE.md). Tests cover cross-branch access, role permissions, application acceptance, collection lock boundaries, report transitions, approved-report immutability and financial calculations. The following authentication results are historical: On 23 October 2026, the authentication foundation passed 55 PostgreSQL/Redis-backed tests with 89.47% backend coverage on Python 3.14; Ruff lint/format and Alembic drift checks passed. The frontend passed 12 tests and its TypeScript/Vite production build. A browser walkthrough verified account creation, first-login password change, refresh restoration, role-specific UI and logout at desktop/tablet/mobile widths. One upstream Starlette/httpx deprecation warning remains. These results do not measure completion of the business features or verify the feature's GitHub CI run.
 
 ## Development roadmap
 
@@ -224,24 +268,29 @@ Priority test areas will include cross-branch access, role permissions, applicat
 - [x] Add PostgreSQL account storage, Alembic migrations, password hashing and database integration tests.
 - [x] Add the public Home page with English/Urdu, responsive navigation and separate staff entry.
 - [ ] Publish branches, verify the first GitHub CI run and configure branch protection.
-- [ ] Finalise the permission matrix, reporting rules and database schema.
-- [x] Implement the initial authentication and staff account provisioning foundation (see [SECURITY.md](SECURITY.md)); full business permissions and audit coverage remain open.
-- [ ] Implement branch management and organisation-wide auditing.
-- [ ] Implement applications and member management.
-- [ ] Implement collections, transfer tracking and weekly report review.
-- [ ] Implement dashboard calculations and CSV/PDF exports.
-- [ ] Build public pages, content management and English/Urdu support.
-- [ ] Complete security checks, automated tests and coverage requirements.
-- [ ] Add Docker packaging, health checks and Render deployment.
+- [x] Define and enforce permissions, reporting snapshots and schema migrations.
+- [x] Implement the initial authentication and staff account provisioning foundation (see [SECURITY.md](SECURITY.md)); business permissions and mutation audit trails are implemented below.
+- [x] Implement branch management with scoped permissions and branch audit history.
+- [x] Audit branch, HR, collection, transfer, report and CMS mutations.
+- [x] Implement applications and member management, including HR decisions and generated member IDs.
+- [x] Implement offline collections with exact PKR amounts, branch scope and creation-based seven-day locks.
+- [x] Implement whole-entry transfer tracking, Finance review and exact outstanding balances.
+- [x] Implement automatic weekly drafts, frozen submissions, Finance review and approval locking.
+- [x] Implement scoped dashboard calculations and CSV/PDF exports.
+- [x] Build public pages with English/Urdu support.
+- [x] Add bilingual staff content drafts, preview and publication.
+- [x] Run local security regressions, automated tests and the unchanged coverage gate; production verification remains a deployment task.
+- [x] Add non-root Docker packaging, schema readiness, hourly maintenance and Render configuration.
+- [ ] Provision Render and verify the actual live deployment.
 - [ ] Verify sample-data acceptance checks and complete submission materials.
 
-The first planned end-to-end workflow is: create a branch, receive an application, accept it into membership, log a collection, submit a report, return and resubmit it, then approve and lock it.
+The implemented core workflow is: create a branch, receive an application, accept it into membership, log a collection, submit a report, return and resubmit it, then approve and lock it.
 
 ## CI and deployment plan
 
 The [CI workflow](.github/workflows/ci.yml) runs on pull requests targeting `dev` or `main`, on pushes to either branch (including merges), and manually. The development flow is **feature branch -> PR into dev -> release PR into main**. Updated commits on an open PR rerun CI.
 
-Current checks use Python 3.12, Ruff lint/format and pytest against PostgreSQL 16 and Redis 7 with a 60% backend coverage gate. CI applies migrations, checks model drift, and verifies downgrade/re-upgrade against its disposable database. A frontend job uses Node 24, `npm ci`, frontend tests and `npm run build`. See [branching and CI setup](docs/DEVELOPMENT.md) and [database instructions](docs/DATABASE.md). Application Docker image checks will follow when a Dockerfile exists; local Compose currently runs PostgreSQL and Redis only. No live deployment is available yet.
+Current checks use Python 3.12, Ruff lint/format and pytest against PostgreSQL 16 and Redis 7 with a 60% backend coverage gate. CI applies migrations, checks model drift, and verifies downgrade/re-upgrade against its disposable database. A frontend job uses Node 24, `npm ci`, frontend tests and `npm run build`. See [branching and CI setup](docs/DEVELOPMENT.md) and [database instructions](docs/DATABASE.md). The container CI job builds the production image and checks migrations, production readiness, SPA refresh, API guards and maintenance. The optional compose.app.yaml adds the application and hourly worker to local PostgreSQL/Redis. No live deployment is available yet.
 
 ## Repository and documentation
 
@@ -251,7 +300,7 @@ Current project documents:
 - [Context.md](Context.md): discussion history, proposed decisions, progress and open questions.
 - [README.md](README.md): project overview and development entry point.
 
-Planned documentation includes:
+The tracked [HANDOVER.md](HANDOVER.md) provides the following; detailed module guides also exist locally under the currently ignored docs/ folder:
 
 - Architecture decisions and system design.
 - API documentation.
@@ -262,20 +311,18 @@ Planned documentation includes:
 - [SECURITY.md](SECURITY.md): implemented authentication and staff-account operations, API behavior and deployment security settings.
 - Open-source library credits and an MIT licence file.
 
-## Outstanding decisions and inputs
+## Outstanding inputs
 
-- Organisation identity, brand assets and public content.
-- Provided sample data and expected dashboard calculations.
-- Surprise twist requirements.
-- Exact permissions, global versus branch scope and user role assignments.
-- Branch lifecycle rules, branch code format and member ID format.
-- Application fields and duplicate handling.
-- Collection lock reference time, correction rules and transfer confirmation.
-- Reporting periods, automatic drafting mechanism and report snapshot behaviour.
-- KPI definitions and whether each figure uses approved reports or live records.
-- Translation scope and final deployment layout.
+The implemented permissions, branch/member codes, application duplicate handling, 168-hour collection deadline, transfer confirmation, Monday reporting periods, snapshot approval, automatic drafts, dashboard definitions and deployment architecture are recorded in [desicions.md](desicions.md) and [HANDOVER.md](HANDOVER.md).
 
-These details are not fully specified by the available brief and should not be treated as settled business rules.
+External acceptance still needs:
+
+- Official organisation identity, approved public copy/assets, supplied sample data and expected dashboard values.
+- Any organiser surprise-task requirements and deadline/history clarification.
+- Render account access, actual live deployment and checks on its HTTPS hostname.
+- Actual GitHub CI/PR results, genuine qualifying commit history, final judged hash and the participant's own-voice video.
+
+Automatic English/Urdu translation remains deferred; paired content fields and bilingual public rendering are implemented. No external translation or email provider is configured. See [ACCEPTANCE.md](ACCEPTANCE.md) for verified local results.
 
 ## Submission requirements
 
@@ -309,4 +356,4 @@ The stated deadline is **26 October 2026, 11:59 PM PKT**. Starting on 21 October
 
 ## Licence
 
-The assignment requires the MIT licence. The licence file has not been added yet; its copyright holder must be established during repository setup.
+The project is provided under the [MIT licence](LICENSE). Bundled Noto report fonts retain their SIL Open Font License in backend/app/report_fonts/OFL.txt; dependency credits are in the handover and AI-USAGE.md.

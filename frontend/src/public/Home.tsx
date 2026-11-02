@@ -4,16 +4,19 @@ import { pageCopy } from './pageCopy';
 import ProgramStory from './ProgramStory';
 import NetworkGlobe from './NetworkGlobe';
 import HomeEvents from './HomeEvents';
+import {localized,useCatalogue} from './catalogue';
 
 export default function Home({ language }: { language: Language }) {
   const copy = content[language];
   const page = pageCopy[language];
+  const {data}=useCatalogue();
+  const introduction=data?.pages?.find(document=>document.page_key==='home');
   return <>
     <section className="home-hero" aria-labelledby="home-title">
       <div className="home-hero-sheet">
         <div className="home-hero-copy">
-          <h1 id="home-title" data-home-reveal>{copy.hero.title}</h1>
-          <p data-home-reveal>{copy.hero.body}</p>
+          <h1 id="home-title" data-home-reveal>{introduction?localized(introduction,'title',language):copy.hero.title}</h1>
+          <p data-home-reveal style={{whiteSpace:'pre-line'}}>{introduction?localized(introduction,'description',language):copy.hero.body}</p>
           <div className="home-hero-actions" data-home-reveal><a className="home-button" href="/get-involved">{copy.hero.action}<span aria-hidden="true">↗</span></a><a className="home-text-link" href="/about">{copy.hero.secondary}</a></div>
         </div>
         <NetworkGlobe language={language} />
