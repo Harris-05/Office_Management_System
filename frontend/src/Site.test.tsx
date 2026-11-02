@@ -24,19 +24,19 @@ test('public home opens without authentication requests and links to staff acces
   }
 });
 
-test('direct staff path preserves the staff portal', () => {
+test('direct staff path preserves the staff portal', async () => {
   render(<Site path="/staff" />);
-  expect(screen.getByRole('heading', { name: 'Staff portal' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: 'Staff portal' })).toBeInTheDocument();
 });
 
-test('direct branch management path opens the authenticated staff application', () => {
+test('direct branch management path opens the authenticated staff application', async () => {
   render(<Site path="/staff/branches" />);
-  expect(screen.getByRole('heading', { name: 'Staff portal' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: 'Staff portal' })).toBeInTheDocument();
 });
 
-test.each(['/staff/applications','/staff/members','/staff/collections','/staff/transfers','/staff/transfers/','/staff/reports','/staff/dashboard','/staff/content'])('direct %s path opens the staff application', path => {
+test.each(['/staff/applications','/staff/members','/staff/collections','/staff/transfers','/staff/transfers/','/staff/reports','/staff/dashboard','/staff/content'])('direct %s path opens the staff application', async path => {
   render(<Site path={path}/>);
-  expect(screen.getByRole('heading',{name:'Staff portal'})).toBeVisible();
+  expect(await screen.findByRole('heading',{name:'Staff portal'})).toBeVisible();
 });
 
 test('participation shows one panel and changes through accessible step controls', async () => {

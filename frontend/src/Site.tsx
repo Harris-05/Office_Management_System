@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
-import App from './App';
+import { lazy, Suspense, useEffect } from 'react';
 import PublicSite from './public/PublicSite';
 import { publicPageForPath } from './public/routes';
+
+const App = lazy(() => import('./App'));
 
 export default function Site({ path = window.location.pathname }: { path?: string }) {
   const staffPage = path.replace(/\/$/,'').split('/')[2];
@@ -16,7 +17,7 @@ export default function Site({ path = window.location.pathname }: { path?: strin
   }, [path, staff, page]);
 
   if (page) return <PublicSite page={page} />;
-  if (staff) return <App initialPage={staffPage === 'branches' || staffPage === 'applications' || staffPage === 'members' || staffPage === 'collections' || staffPage === 'transfers' || staffPage === 'reports' || staffPage === 'dashboard' || staffPage === 'content' ? staffPage : 'home'} />;
+  if (staff) return <Suspense fallback={<main><h1>Opening your workspace</h1><p role="status">Loading staff portal…</p></main>}><App initialPage={staffPage === 'branches' || staffPage === 'applications' || staffPage === 'members' || staffPage === 'collections' || staffPage === 'transfers' || staffPage === 'reports' || staffPage === 'dashboard' || staffPage === 'content' ? staffPage : 'home'} /></Suspense>;
   return <main className="public-site public-not-found">
     <h1>Page not found</h1>
     <p>This page isn’t available. You can return to the public website or open the staff portal.</p>

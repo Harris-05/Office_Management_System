@@ -127,7 +127,9 @@ def source_snapshot(db, report):
     ).all()
     if len(collections) + len(transfers) > EXPORT_LIMIT:
         raise HTTPException(
-            422, "This report exceeds the 10,000 source record limit. Contact your administrator."
+            422,
+            f"This report exceeds the {EXPORT_LIMIT:,} source record limit. "
+            "Contact your administrator.",
         )
     return {
         "collections": [

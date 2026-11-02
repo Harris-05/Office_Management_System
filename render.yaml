@@ -2,6 +2,8 @@
 services:
   - type: web
     name: branch-office
+    branch: main
+    autoDeployTrigger: 'off'
     runtime: docker
     plan: 0.5c-512mb
     region: frankfurt
@@ -37,6 +39,8 @@ services:
     maxmemoryPolicy: noeviction
   - type: cron
     name: branch-office-maintenance
+    branch: main
+    autoDeployTrigger: 'off'
     runtime: docker
     region: frankfurt
     dockerfilePath: ./Dockerfile
@@ -55,7 +59,9 @@ services:
           property: connectionString
 databases:
   - name: branch-office-db
-    plan: basic-256mb
+    plan: 0.1c-256mb
     region: frankfurt
     databaseName: branch_office
     user: branch_office
+    postgresMajorVersion: '16'
+    ipAllowList: []

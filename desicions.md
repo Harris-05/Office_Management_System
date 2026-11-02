@@ -1,6 +1,6 @@
 # Project decisions
 
-Last updated: 1 November 2026.
+Last updated: 2 November 2026.
 
 This file records agreed project decisions. Approval of a design does not mean its implementation is complete. The assignment brief remains in Task.md; current progress is tracked in Context.md.
 
@@ -248,3 +248,20 @@ The previously approved security and staff provisioning design has now been impl
 - Submitted reserves the fixed batch; Returned releases it. Resubmit corrected metadata only if all original entries remain available. Lead cancellation releases reservations, including on inactive branches. Confirmed/Cancelled terminal; no deletion, partial confirmation, reversal or bank integration.
 - Exact PKR decimal strings, BigInt selection cents, database numeric totals, unique active allocations, safe retries, version checks and atomic audits protect reconciliation. Distinguish not-submitted, eligible, awaiting-confirmation and confirmed-received totals.
 - Remain on feature/branch-management; no new dependencies/branches/commits/pushes/deployment. Details in docs/TRANSFERS.md; observed verification in the execution ledger.
+
+## Completing the project and weekly report snapshots (2 November 2026)
+
+- User selected approach1 and explicitly requested completing all remaining features. Preserve feature/branch-management and user-controlled commits/PRs. Do not rewrite the user's intervening commits.
+- Reports freeze figures and narrative on submission; resubmission creates a new immutable revision. Finance compares full source membership/revisions before approval under the shared branch lock. Approved reports never change; later edits/backdated records raise a visible discrepancy. Do not shorten the collection's168-hour editing window.
+- Builder defaults: Monday00:00→next Monday00:00 Asia/Karachi; collections use actual collected_on, transfers transferred_on/status as-of snapshot. Closed-week submission only. Lead current Active branch writes; independent Finance reviews; Admin read-only; HR/Editor denied. Existing submissions may be settled after branch inactivity.
+- Automatic drafts are repeat-safe and unique by branch/week; bounded hourly maintenance starts at branch registration week and permits explicit historical backfill. It also runs existing session/correspondence cleanup. No report writes on GET.
+- Exact dashboard live totals/monthly trends remain separate from cumulative transfer reconciliation and frozen approved-report totals. Full scoped CSV is formula-safe and bounded; PDF embeds licensed Latin/Arabic fonts and HarfBuzz shaping. Pin fpdf2/uharfbuzz; retain OFL notices. Unsupported glyphs fail visibly and offer UTF-8 CSV.
+- CMS keeps private draft separate from public copy. Explicit publish validates/copies atomically; events retain branch lifecycle/publication gating. Plain bilingual text only; no upload, raw HTML or external translation service.
+- Use one non-root production image for React/FastAPI, explicit SPA paths, schema+Redis readiness and production CSP/HSTS. Local full-stack Compose runs app18080 and hourly worker; Render Blueprint uses main/manual deployment and an hourly cron. Do not provision paid hosting or claim a live URL without access and verification.
+- Official organiser fixtures/expected totals, actual Render launch, remote main CI/PR verification and the user's final video/history remain external acceptance inputs. A tracked root HANDOVER.md preserves essential docs without altering the repository's docs/Context ignore policy.
+
+
+### Final dependency and performance checks (2 November 2026)
+
+- Audit found two fpdf2 advisories fixed in2.8.8. The current exporter accepts plain narrative text and fixed bundled fonts, with no user image/HTML loading; upgrade the pin to2.8.8 anyway and verify actual Urdu PDF exports. Official advisory/release: https://github.com/py-pdf/fpdf2/releases/tag/2.8.8.
+- Measure mobile performance before changes. Keep the chosen palette/fonts/scroll interactions; load staff code only on staff routes, self-host licensed font subsets, gzip public static assets only, and batch globe paths by depth. Do not compress private session/API responses or weaken security/rate limits for a score. Record measured results and local-versus-live limits in ACCEPTANCE.md.

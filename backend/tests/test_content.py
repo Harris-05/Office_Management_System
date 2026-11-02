@@ -71,8 +71,10 @@ def command(client, row, action, **values):
 def test_draft_publish_edit_preview_and_unpublish_do_not_leak(staff):
     editor = staff()
     row = create(editor)
+
     def catalog():
         return editor.get("/api/public/catalog").json()["programs"]
+
     assert not catalog()
     assert row["published"] is None and not row["is_published"]
     published = command(editor, row, "publish")

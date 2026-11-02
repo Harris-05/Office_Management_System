@@ -7,6 +7,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from sqlalchemy import func, select
+from sqlalchemy.orm import defer
 
 from app import report_service as service
 from app.collections import branch_view
@@ -29,11 +30,21 @@ Finance = Annotated[Principal, Depends(require_roles(UserRole.FINANCE_REVIEWER))
 
 def view(db, row, principal, with_sources=True):
     branch = db.get(Branch, row.branch_id)
-    live = (
-        service.source_snapshot(db, row)
-        if with_sources and row.status in {"Draft", "Returned"}
-        else None
-    )
+    live = None
+    preview_unavailable = False
+    preview_reason = None
+    if with_sources and row.status in {"Draft", "Returned"}:
+        try:
+            live = service.source_snapshot(db, row)
+        except HTTPException as error:
+            if error.status_code != 422 or row.status != "Returned" or row.snapshot is None:
+                raise
+            preview_unavailable = True
+            preview_reason = (
+                f"Live preview unavailable: {error.detail} "
+                "The last submitted figures are shown. Resubmission is unavailable "
+                "until a complete live preview can be produced."
+            )
     editing = (
         principal.user.role == UserRole.BRANCH_LEAD
         and branch.lead_id == principal.user.id
@@ -47,7 +58,7 @@ def view(db, row, principal, with_sources=True):
             .limit(1)
         )
     )
-    return {
+    result = {
         "id": row.id,
         "code": f"RPT-{branch.code}-{row.week_start.isoformat()}",
         "branch": branch_view(branch),
@@ -57,10 +68,15 @@ def view(db, row, principal, with_sources=True):
         "version": row.version,
         "revision_number": row.revision_number,
         "narrative": row.narrative,
-        "snapshot": live if row.status in {"Draft", "Returned"} else row.snapshot,
-        "discrepancy": service.has_discrepancy(db, row) if with_sources else False,
+        "preview_unavailable": preview_unavailable,
+        "preview_unavailable_reason": preview_reason,
+        "snapshot_basis": None,
+        "discrepancy": preview_unavailable
+        or (service.has_discrepancy(db, row) if with_sources else False),
         "can_edit": editing,
-        "can_submit": editing and row.week_start < service.monday(service.utc_now()),
+        "can_submit": editing
+        and not preview_unavailable
+        and row.week_start < service.monday(service.utc_now()),
         "can_review": principal.user.role == UserRole.FINANCE_REVIEWER
         and row.status == "Submitted"
         and not self_submitted,
@@ -69,6 +85,16 @@ def view(db, row, principal, with_sources=True):
         "created_at": row.created_at,
         "updated_at": row.updated_at,
     }
+    if with_sources:
+        result["snapshot"] = live if live is not None else row.snapshot
+        result["snapshot_basis"] = (
+            "last_submission"
+            if preview_unavailable
+            else "live_preview"
+            if row.status in {"Draft", "Returned"}
+            else "frozen_submission"
+        )
+    return result
 
 
 @router.get("")
@@ -84,7 +110,7 @@ def register(
 ):
     if from_week and to_week and from_week > to_week:
         raise HTTPException(422, "The start week must be on or before the end week.")
-    query = service.scoped(select(Report).join(Branch), principal)
+    query = service.scoped(select(Report).options(defer(Report.snapshot)).join(Branch), principal)
     if branch_id:
         query = query.where(Report.branch_id == branch_id)
     if status:

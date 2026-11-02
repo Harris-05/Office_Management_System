@@ -26,33 +26,36 @@ const routes = Array.from({ length: 13 }, (_, index) => {
 function draw(context: CanvasRenderingContext2D, size: number, turn: number, progress: number, ink: string) {
   const radius = size * .37;
   const center = size / 2;
+  const cosTurn = Math.cos(turn), sinTurn = Math.sin(turn);
+  const cosTilt = Math.cos(.16), sinTilt = Math.sin(.16);
   const project = (p: Point) => {
-    const x = p.x * Math.cos(turn) + p.z * Math.sin(turn);
-    const z = p.z * Math.cos(turn) - p.x * Math.sin(turn);
-    return { x: center + x * radius, y: center + (p.y * Math.cos(.16) - z * Math.sin(.16)) * radius, z: p.y * Math.sin(.16) + z * Math.cos(.16) };
+    const x = p.x * cosTurn + p.z * sinTurn;
+    const z = p.z * cosTurn - p.x * sinTurn;
+    return { x: center + x * radius, y: center + (p.y * cosTilt - z * sinTilt) * radius, z: p.y * sinTilt + z * cosTilt };
+  };
+  // Batch segments by depth: each path is one canvas stroke instead of one per line.
+  const strokeLines = (lines: Point[][], backAlpha: number, frontAlpha: number) => {
+    for (const back of [true, false]) {
+      context.globalAlpha = back ? backAlpha : frontAlpha;
+      context.beginPath();
+      for (const points of lines) for (let i = 1; i < points.length; i++) {
+        const a = points[i - 1], b = points[i];
+        if (((a.z + b.z) / 2 < 0) !== back) continue;
+        context.moveTo(a.x, a.y); context.lineTo(b.x, b.y);
+      }
+      context.stroke();
+    }
   };
   context.clearRect(0, 0, size, size);
   context.strokeStyle = ink;
   context.fillStyle = ink;
   context.lineWidth = .8;
-  for (const ring of rings) {
-    const points = ring.map(project);
-    for (let i = 1; i < points.length; i++) {
-      const a = points[i - 1], b = points[i];
-      context.globalAlpha = (a.z + b.z) / 2 < 0 ? .08 : .24;
-      context.beginPath(); context.moveTo(a.x, a.y); context.lineTo(b.x, b.y); context.stroke();
-    }
-  }
+  strokeLines(rings.map(ring => ring.map(project)), .08, .24);
   context.lineWidth = 1.4;
-  routes.forEach((route, index) => {
-    const points = route.map(project);
-    const length = Math.max(7, Math.round(points.length * (.55 + progress * .45)));
-    for (let i = 1; i < length; i++) {
-      const a = points[i - 1], b = points[i];
-      context.globalAlpha = (a.z + b.z) / 2 < 0 ? .1 : .58;
-      context.beginPath(); context.moveTo(a.x, a.y); context.lineTo(b.x, b.y); context.stroke();
-    }
-    const active = points[(index * 3 + Math.round(progress * 20)) % length];
+  const paths = routes.map(route => route.slice(0, Math.max(7, Math.round(route.length * (.55 + progress * .45)))).map(project));
+  strokeLines(paths, .1, .58);
+  paths.forEach((points, index) => {
+    const active = points[(index * 3 + Math.round(progress * 20)) % points.length];
     if (active.z > 0) { context.globalAlpha = .95; context.beginPath(); context.arc(active.x, active.y, 2.6, 0, Math.PI * 2); context.fill(); }
   });
   for (const node of nodes.map(project)) {

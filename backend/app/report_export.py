@@ -26,12 +26,9 @@ def csv_document(report):
     row("Weekly report", report["code"], report["status"], "Asia/Karachi")
     row("Period start inclusive", report["week_start"], "Period end exclusive", report["week_end"])
     row("Revision", report["revision_number"], "Submitted at", report["submitted_at"])
-    row(
-        "Snapshot basis",
-        "Live draft preview"
-        if report["status"] in {"Draft", "Returned"}
-        else "Frozen submitted figures",
-    )
+    row("Snapshot basis", snapshot_label(report))
+    if report.get("preview_unavailable"):
+        row("Preview unavailable", report["preview_unavailable_reason"])
     row(
         "Collection total PKR",
         snapshot["collection_total"],
@@ -81,6 +78,16 @@ def csv_document(report):
     return ("\ufeff" + output.getvalue()).encode("utf-8")
 
 
+def snapshot_label(report):
+    if report.get("snapshot_basis") == "last_submission":
+        return "Last submitted figures - live preview unavailable"
+    return (
+        "Live draft preview"
+        if report["status"] in {"Draft", "Returned"}
+        else "Frozen submitted figures"
+    )
+
+
 def pdf_document(report):
     from fpdf import FPDF
 
@@ -118,7 +125,10 @@ def pdf_document(report):
     line(f"{branch.name} / {branch.code}")
     line(f"{report['week_start']} to {report['week_end']} (end exclusive), Asia/Karachi")
     line(f"Status: {report['status']} / submission revision {report['revision_number']}")
-    if report["status"] in {"Draft", "Returned"}:
+    if report.get("preview_unavailable"):
+        line(snapshot_label(report), 12)
+        line(report["preview_unavailable_reason"])
+    elif report["status"] in {"Draft", "Returned"}:
         line("DRAFT PREVIEW - live figures; not submitted or approved", 12)
     else:
         line(f"Frozen submission: {report['submitted_at']}")

@@ -253,3 +253,95 @@ def test_register_omits_source_snapshots_but_detail_keeps_them(staff, db_session
     assert all("snapshot" not in item for item in register["items"])
     detail = lead.get(f"/api/reports/{report.id}").json()
     assert detail["snapshot"]["collection_total"] == "0.01"
+
+
+def test_collection_moved_out_of_week_requires_resubmission(staff, db_session, monkeypatch):
+    from test_collections import update_body
+
+    lead, user = staff()
+    branch = assigned_branch(db_session, user)
+    report = draft(db_session, branch, monkeypatch)
+    finance, _ = staff(UserRole.FINANCE_REVIEWER)
+    collection = create(lead, amount="0.01", collected_on="2026-10-27")
+    row = lead.get(f"/api/reports/{report.id}").json()
+    submitted = command(lead, row, "submit").json()
+    moved = lead.post(
+        f"/api/collections/{collection['id']}/update",
+        json=update_body(collection, collected_on="2026-11-02"),
+    )
+    assert moved.status_code == 200
+    assert command(finance, submitted, "approve", acknowledge=True).status_code == 409
+    assert lead.get(f"/api/reports/{report.id}").json()["snapshot"]["collection_total"] == "0.01"
+
+
+def test_report_csv_neutralizes_untrusted_narrative_and_source_cells(
+    staff, db_session, monkeypatch
+):
+    import csv
+    import io
+
+    lead, user = staff()
+    branch = assigned_branch(db_session, user)
+    report = draft(db_session, branch, monkeypatch)
+    create(
+        lead,
+        amount="0.01",
+        collected_on="2026-10-27",
+        collector_name="=1+1",
+        notes='@SUM(1,2), "quoted"',
+    )
+    row = lead.get(f"/api/reports/{report.id}").json()
+    edited = command(lead, row, "narrative", narrative="  +SUM(1,2)\nاردو رپورٹ").json()
+    submitted = command(lead, edited, "submit")
+    assert submitted.status_code == 200
+    exported = lead.get(f"/api/reports/{report.id}/export.csv")
+    assert exported.content.startswith(b"\xef\xbb\xbf")
+    rows = list(csv.reader(io.StringIO(exported.content.decode("utf-8-sig"))))
+    narrative = next(values[1] for values in rows if values[0] == "Narrative")
+    collection = next(values for values in rows if values[0] == "Collection")
+    assert narrative.startswith("'+SUM(1,2)") and "اردو رپورٹ" in narrative
+    assert collection[6] == "'=1+1"
+    assert collection[8] == '\'@SUM(1,2), "quoted"'
+
+
+def test_pdf_embeds_fonts_and_uses_arabic_shaping(staff, db_session, monkeypatch):
+    from fpdf import FPDF
+    from fpdf.fonts import TTFFont
+
+    lead, user = staff()
+    branch = assigned_branch(db_session, user)
+    report = draft(db_session, branch, monkeypatch)
+    row = lead.get(f"/api/reports/{report.id}").json()
+    narrative = "English / ہفتہ وار رپورٹ / اردو"
+    edited = command(lead, row, "narrative", narrative=narrative).json()
+    assert command(lead, edited, "submit").status_code == 200
+    calls = []
+    arabic_runs = []
+    original = FPDF.set_text_shaping
+    shape = TTFFont.perform_harfbuzz_shaping
+
+    def observe(pdf, *args, **kwargs):
+        calls.append((args, kwargs))
+        return original(pdf, *args, **kwargs)
+
+    monkeypatch.setattr(FPDF, "set_text_shaping", observe)
+
+    def observe_glyphs(font, text, size, parameters):
+        glyphs, positions = shape(font, text, size, parameters)
+        if font.fontkey == "arabic" and len(text) > 1:
+            if any("\u0600" <= character <= "\u06ff" for character in text):
+                arabic_runs.append(
+                    (
+                        [glyph.codepoint for glyph in glyphs],
+                        [font.glyph_ids.get(ord(character), 0) for character in text],
+                    )
+                )
+        return glyphs, positions
+
+    monkeypatch.setattr(TTFFont, "perform_harfbuzz_shaping", observe_glyphs)
+    exported = lead.get(f"/api/reports/{report.id}/export.pdf")
+    assert exported.status_code == 200 and exported.content.startswith(b"%PDF-")
+    assert b"/FontFile2" in exported.content
+    assert b"NotoSans" in exported.content and b"NotoNaskhArabic" in exported.content
+    assert calls and calls[0][0] == (True,)
+    assert arabic_runs and any(shaped != isolated for shaped, isolated in arabic_runs)
