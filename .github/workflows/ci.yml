@@ -101,3 +101,72 @@ jobs:
           python -m alembic upgrade head
       - name: Test with coverage
         run: python -m pytest
+  container:
+    name: Production image smoke
+    runs-on: ubuntu-latest
+    needs: [frontend, backend]
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: branch_office
+          POSTGRES_PASSWORD: ci_only_password
+          POSTGRES_DB: branch_office_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U branch_office -d branch_office_test"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build production image
+        run: docker build -t branch-office:ci .
+      - name: Migrate and start image with production settings
+        run: |
+          cat > /tmp/branch-office-ci.env <<'EOF'
+          DATABASE_URL=postgresql+psycopg://branch_office:ci_only_password@127.0.0.1:5432/branch_office_test
+          REDIS_URL=redis://127.0.0.1:6379/0
+          ENVIRONMENT=production
+          COOKIE_SECURE=true
+          RATE_LIMIT_SECRET=ci-only-production-smoke-secret-not-for-deployment
+          ALLOWED_HOSTS=["office.example"]
+          ALLOWED_ORIGINS=["https://office.example"]
+          PORT=18080
+          EOF
+          docker run --rm --network host --env-file /tmp/branch-office-ci.env branch-office:ci python -m alembic upgrade head
+          docker run -d --name branch-office-ci --network host --env-file /tmp/branch-office-ci.env branch-office:ci
+      - name: Verify readiness, SPA refresh, API guards and maintenance
+        run: |
+          for attempt in $(seq 1 30); do
+            if docker exec branch-office-ci python -m app.health_probe; then break; fi
+            sleep 2
+          done
+          docker exec branch-office-ci python -m app.health_probe
+          docker exec branch-office-ci python -m app.maintenance --once
+          python - <<'PY'
+          import urllib.request, urllib.error
+          for path in ['/', '/about', '/staff/reports', '/staff/content', '/staff/dashboard']:
+              request = urllib.request.Request('http://127.0.0.1:18080'+path, headers={'Host':'office.example'})
+              with urllib.request.urlopen(request) as response:
+                  assert response.status == 200
+                  assert 'text/html' in response.headers['Content-Type']
+                  assert "script-src 'self'" in response.headers['Content-Security-Policy']
+          for path, expected in [('/api/reports',401),('/api/content',401),('/assets/missing.js',404)]:
+              request = urllib.request.Request('http://127.0.0.1:18080'+path, headers={'Host':'office.example'})
+              try:
+                  urllib.request.urlopen(request)
+                  raise AssertionError('Unexpected success for '+path)
+              except urllib.error.HTTPError as error:
+                  assert error.code == expected
+          PY
+      - name: Image logs on failure
+        if: failure()
+        run: docker logs branch-office-ci || true

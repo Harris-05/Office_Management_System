@@ -11,7 +11,10 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.branches import router as branches_router
+from app.collections import router as collections_router
 from app.config import get_settings
+from app.content import router as content_router
+from app.dashboard import router as dashboard_router
 from app.database import get_engine
 from app.dependencies import Principal, require_api_access
 from app.login import router as login_router
@@ -19,7 +22,11 @@ from app.membership import router as membership_router
 from app.middleware import SecurityMiddleware
 from app.public import router as public_router
 from app.rate_limits import get_redis
+from app.reports import router as reports_router
+from app.schema_health import require_current_schema
 from app.staff import router as staff_router
+from app.transfers import router as transfers_router
+from app.web import install_frontend
 
 
 @asynccontextmanager
@@ -55,6 +62,11 @@ def create_app() -> FastAPI:
     api.include_router(public_router)
     api.include_router(branches_router)
     api.include_router(membership_router)
+    api.include_router(collections_router)
+    api.include_router(transfers_router)
+    api.include_router(reports_router)
+    api.include_router(dashboard_router)
+    api.include_router(content_router)
     app.include_router(api)
     app.add_middleware(SecurityMiddleware)
     app.add_middleware(
@@ -85,11 +97,13 @@ def create_app() -> FastAPI:
     @app.get("/health/ready")
     def readiness():
         with get_engine().connect() as connection:
+            require_current_schema(connection)
             connection.execute(text("SELECT 1 FROM users LIMIT 1"))
             connection.execute(text("SELECT 1 FROM auth_sessions LIMIT 1"))
         get_redis().ping()
         return {"status": "ready"}
 
+    install_frontend(app, settings.frontend_dist)
     return app
 
 

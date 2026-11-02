@@ -1,0 +1,67 @@
+# Review service plans and charges in Render before creating this Blueprint.
+services:
+  - type: web
+    name: branch-office
+    branch: main
+    autoDeployTrigger: 'off'
+    runtime: docker
+    plan: 0.5c-512mb
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health/ready
+    preDeployCommand: python -m alembic upgrade head
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: branch-office-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: branch-office-redis
+          property: connectionString
+      - key: ENVIRONMENT
+        value: production
+      - key: COOKIE_SECURE
+        value: 'true'
+      - key: RATE_LIMIT_SECRET
+        generateValue: true
+      - key: ALLOWED_HOSTS
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+  - type: keyvalue
+    name: branch-office-redis
+    plan: 256mb
+    region: frankfurt
+    ipAllowList: []
+    maxmemoryPolicy: noeviction
+  - type: cron
+    name: branch-office-maintenance
+    branch: main
+    autoDeployTrigger: 'off'
+    runtime: docker
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    schedule: '5 * * * *'
+    dockerCommand: python -m app.maintenance --once
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: branch-office-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: branch-office-redis
+          property: connectionString
+databases:
+  - name: branch-office-db
+    plan: 0.1c-256mb
+    region: frankfurt
+    databaseName: branch_office
+    user: branch_office
+    postgresMajorVersion: '16'
+    ipAllowList: []

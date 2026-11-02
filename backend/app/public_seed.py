@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
+from app.content_service import adopt_catalogue_record
 from app.database import get_engine
 from app.public_models import Branch, Program, PublicEvent
 
@@ -172,6 +173,7 @@ def seed_public_content(session: Session) -> int:
             session.add(row)
             session.flush()
             created += 1
+        adopt_catalogue_record(session, row)
         return row
 
     branches = []
