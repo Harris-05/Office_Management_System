@@ -1,0 +1,5 @@
+import type {BranchOption,Page} from '../membership/types';
+export type {BranchOption,Page};
+export type Snapshot={collection_total:string;collection_count:number;transfer_total:string;transfer_count:number;transfer_status_totals:Record<string,string>;collections:{id:string;code:string;version:number;amount:string;collected_on:string;collector_name:string;notes:string}[];transfers:{id:string;code:string;version:number;amount:string;transferred_on:string;status:string;reference:string;notes:string}[]};
+export type Report={id:string;code:string;branch:BranchOption;week_start:string;week_end:string;status:'Draft'|'Returned'|'Submitted'|'Approved';version:number;revision_number:number;narrative:string;snapshot:Snapshot|null;discrepancy:boolean;can_edit:boolean;can_submit:boolean;can_review:boolean;submitted_at:string|null;approved_at:string|null;created_at:string};
+export type Revision={id:string;number:number;narrative:string;snapshot:Snapshot;submitted_at:string};

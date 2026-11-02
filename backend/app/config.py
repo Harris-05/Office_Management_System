@@ -13,6 +13,7 @@ class Settings(BaseSettings):
         hide_input_in_errors=True,
     )
     database_url: PostgresDsn
+    frontend_dist: Path = Path(__file__).resolve().parents[2] / "frontend" / "dist"
     environment: str = "development"
     redis_url: str = "redis://localhost:6379/0"
     rate_limit_secret: str = Field(default="local-development-only-not-for-production", repr=False)

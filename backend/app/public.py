@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
+from app.content_models import ContentDocument
 from app.database import get_db
 from app.dependencies import Principal, require_api_access, require_roles
 from app.models import UserRole
@@ -62,11 +63,30 @@ class Catalogue(BaseModel):
     branches: list[BranchView]
     programs: list[ProgramView]
     events: list[EventView]
+    pages: list["PageView"] = Field(default_factory=list)
+
+
+class PageView(Published):
+    page_key: Literal["home", "about", "contact"]
+    title: str
+    title_ur: str
 
 
 @router.get("/api/public/catalog", response_model=Catalogue)
 def catalogue(db: DB):
     return {
+        "pages": [
+            {**row.published, "id": row.id, "is_demo": False}
+            for row in db.scalars(
+                select(ContentDocument)
+                .where(
+                    ContentDocument.kind == "page",
+                    ContentDocument.is_published,
+                    ContentDocument.published.is_not(None),
+                )
+                .order_by(ContentDocument.page_key)
+            ).all()
+        ],
         "branches": db.scalars(
             select(Branch)
             .where(Branch.is_published, Branch.status == "Active")

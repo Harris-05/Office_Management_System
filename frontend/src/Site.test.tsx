@@ -34,7 +34,7 @@ test('direct branch management path opens the authenticated staff application', 
   expect(screen.getByRole('heading', { name: 'Staff portal' })).toBeInTheDocument();
 });
 
-test.each(['/staff/applications','/staff/members','/staff/collections','/staff/transfers','/staff/transfers/'])('direct %s path opens the staff application', path => {
+test.each(['/staff/applications','/staff/members','/staff/collections','/staff/transfers','/staff/transfers/','/staff/reports','/staff/dashboard','/staff/content'])('direct %s path opens the staff application', path => {
   render(<Site path={path}/>);
   expect(screen.getByRole('heading',{name:'Staff portal'})).toBeVisible();
 });

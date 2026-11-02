@@ -5,7 +5,8 @@ interface Published { id: string; slug: string; is_demo: boolean; description: s
 export interface Branch extends Published { name: string; name_ur: string; city: string; city_ur: string; address: string; address_ur: string; hours: string; hours_ur: string }
 export interface Program extends Published { title: string; title_ur: string; audience: string; audience_ur: string }
 export interface PublicEvent extends Published { title: string; title_ur: string; branch_id: string; starts_at: string; ends_at: string }
-export interface Catalogue { branches: Branch[]; programs: Program[]; events: PublicEvent[] }
+export interface PublishedPage extends Published { page_key:'home'|'about'|'contact';title:string;title_ur:string }
+export interface Catalogue { branches: Branch[]; programs: Program[]; events: PublicEvent[]; pages?:PublishedPage[] }
 
 export function localized<T>(row: T, field: keyof T, language: Language): string {
  return String(language === 'ur' ? row[`${String(field)}_ur` as keyof T] || row[field] : row[field]);
